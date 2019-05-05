@@ -1,0 +1,7 @@
+*.o
+*.out
+*.rcb
+rcb.*.mak
+config.mak
+sdlbook
+
