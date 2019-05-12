@@ -565,6 +565,12 @@ int main(int argc, char **argv) {
 					break;
 				case EV_KEYUP:
 					switch(event.which) {
+						case SDLK_UP:
+						case SDLK_DOWN:
+						case SDLK_PAGEUP:
+						case SDLK_PAGEDOWN:
+							need_redraw = 1;
+							break;
 						case SDLK_LCTRL:
 							left_ctrl_pressed = 0;
 							break;
