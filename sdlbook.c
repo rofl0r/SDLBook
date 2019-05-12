@@ -148,14 +148,17 @@ static inline unsigned get_image_pixel(int x, int y) {
 }
 
 static void draw() {
-	int x, y;
+	int x, y, yline;
 	unsigned *ptr = (void *) ezsdl_get_vram();
 	unsigned pitch = ezsdl_get_pitch()/4;
+	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
 	int ymax = MIN(ezsdl_get_height(), page_dims.h*2-scroll_line),
 	    xmax = MIN(ezsdl_get_width(), page_dims.w);
-	for(y = 0; y < ymax; y++)
+	for(y = 0; y < ymax; y++) {
+		yline = y*pitch + xoff;
 		for (x = 0; x < xmax; x++)
-			ptr[y*pitch + x] = get_image_pixel(x, y+scroll_line); //SRGB_BLACK;
+			ptr[yline + x] = get_image_pixel(x, y+scroll_line); //SRGB_BLACK;
+	}
 }
 
 static int game_tick(int need_redraw) {
