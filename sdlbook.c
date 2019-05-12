@@ -585,7 +585,7 @@ int main(int argc, char **argv) {
 								char buf[32];
 								buf[0] = 0;
 								input_loop("enter page no", buf);
-								set_page(atoi(buf));
+								if(*buf) set_page(atoi(buf));
 								need_redraw = 1;
 							}
 							break;
