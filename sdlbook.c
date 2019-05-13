@@ -522,13 +522,27 @@ int main(int argc, char **argv) {
 
 	unsigned left_ctrl_pressed = 0;
 	unsigned right_ctrl_pressed = 0;
+	unsigned mb_left_down = 0;
+	unsigned mouse_y = 0;
 
 	while(1) {
 		unsigned need_redraw = 0;
+		int scroll_dist = 0;
 		enum eventtypes e;
 		while((e = ezsdl_getevent(&event)) != EV_NONE) {
 			need_redraw = 0;
 			switch (e) {
+				case EV_MOUSEDOWN:
+					if(event.which == SDL_BUTTON_LEFT) mb_left_down = 1;
+					break;
+				case EV_MOUSEUP:
+					if(event.which == SDL_BUTTON_LEFT) mb_left_down = 0;
+					break;
+				case EV_MOUSEMOVE:
+					if(mb_left_down && mouse_y != event.yval)
+						scroll_dist += mouse_y-event.yval;
+					mouse_y = event.yval;
+					break;
 				case EV_MOUSEWHEEL:
 					if(left_ctrl_pressed || right_ctrl_pressed)
 						need_redraw = change_scale(event.yval*10);
@@ -632,8 +646,10 @@ int main(int argc, char **argv) {
 				default:
 					break;
 			}
-			game_tick(need_redraw);
+			if(need_redraw) game_tick(need_redraw);
 		}
+		if(scroll_dist) need_redraw = change_scroll(scroll_dist);
+
 		if(game_tick(need_redraw)) {
 		}
 	}

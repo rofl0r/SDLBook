@@ -390,6 +390,7 @@ static void event_process_mousemove(struct inp* inp, SDL_Event* sdl_event, struc
 static void event_process_mousedown(struct inp* inp, SDL_Event* sdl_event, struct event *myevent) {
 	myevent->xval = sdl_event->button.x;
 	myevent->yval = sdl_event->button.y;
+	myevent->which = sdl_event->button.button;
 	inp->mouse.x = sdl_event->motion.x;
 	inp->mouse.y = sdl_event->motion.y;
 }
