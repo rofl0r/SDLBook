@@ -287,6 +287,11 @@ static void* prep_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *desired
 
 static void* prep_pages() {
 	ddjvu_rect_t p1rect, p2rect;
+	static int last_page = -1, last_scale = -1;
+	if(curr_page == last_page && last_scale == config_data.scale)
+		return image_data;
+	last_page = curr_page;
+	last_scale = config_data.scale;
 	char *p1data = prep_page(curr_page, &p1rect, 0);
 	char *p2data = prep_page(curr_page+1, &p2rect, 0);
 	if(!p2data) {
@@ -335,6 +340,7 @@ static void handle(int wait) {
 
 static void swap_image(void *new) {
 	void *old = image_data;
+	if(old == new) return;
 	image_data = new;
 	free(old);
 }
