@@ -617,6 +617,7 @@ int main(int argc, char **argv) {
 				default:
 					break;
 			}
+			game_tick(need_redraw);
 		}
 		if(game_tick(need_redraw)) {
 		}
