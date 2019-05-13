@@ -157,8 +157,22 @@ static void draw() {
 	for(y = 0; y < ymax; y++) {
 		yline = y*pitch + xoff;
 		for (x = 0; x < xmax; x++)
-			ptr[yline + x] = get_image_pixel(x, y+scroll_line); //SRGB_BLACK;
+			ptr[yline + x] = get_image_pixel(x, y+scroll_line);
 	}
+}
+
+static void draw_borders() {
+	int x, y, yline, xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
+	int ymax = MIN(ezsdl_get_height(), page_dims.h*2-scroll_line);
+	if (!xoff) return;
+	unsigned *vram = (void *) ezsdl_get_vram(), *ptr;
+	unsigned pitch = ezsdl_get_pitch()/4;
+	for(y = 0, yline = 0; y < ymax; y++, yline+=pitch)
+		for(x = 0, ptr=vram+yline; x < xoff; x++, ptr++)
+			*ptr = ARGB(0,0,0);
+	for(y = 0, yline = 0; y < ymax; y++, yline+=pitch)
+		for(x = 0, ptr=vram+yline+xoff+page_dims.w; x < xoff; x++, ptr++)
+			*ptr = ARGB(0,0,0);
 }
 
 static int game_tick(int need_redraw) {
@@ -166,6 +180,7 @@ static int game_tick(int need_redraw) {
 	if(need_redraw) {
 		long long tstamp = ezsdl_getutime64();
 		draw();
+		if(need_redraw == 2) draw_borders();
 		ezsdl_refresh();
 		ms_used = ezsdl_getutime64() - tstamp;
 	}
@@ -366,7 +381,7 @@ static int change_scale(int incr) {
 	if (config_data.scale + incr <= 999 && config_data.scale + incr >= 0)
 		config_data.scale += incr;
 	swap_image(prep_pages());
-	return 1;
+	return incr < 0 ? 2 : 1;;
 }
 
 static int change_scroll(int incr) {
