@@ -138,6 +138,8 @@ static inline unsigned colget8(unsigned char col, int which) {
 			return ((col >> 3) & 3) * 85;
 		case 2: /* blue */
 			return (col & 7) * 36;
+		default:
+			return 0;
 	}
 }
 
