@@ -28,7 +28,8 @@ typedef struct bmp4 {
 } bmp4;
 
 static inline bmp4* bmp4_new(unsigned width, unsigned height) {
-	bmp4* res = malloc((sizeof *res)+(width*height*sizeof(*res->data)));
+	size_t wxh = (size_t)width * (size_t)height;
+	bmp4* res = malloc((sizeof *res)+(wxh*sizeof(*res->data)));
 	if(!res) return 0;
 	res->width=width;
 	res->height=height;
@@ -42,8 +43,9 @@ static inline bmp4* bmp4_from_filestream(FILE *f) {
 	fread(&h, 4, 1, f);
 	bmp4* b = bmp4_new(w, h);
 	if(!b) goto ext;
-	size_t i; unsigned *p = b->data;
-	for(i=0; i<w*h; i++, p++) fread(p, 4, 1, f);
+	size_t i, wxh = (size_t)w * (size_t)h;
+	unsigned *p = b->data;
+	for(i=0; i<wxh; i++, p++) fread(p, 4, 1, f);
 	ext:
 	return b;
 }
@@ -57,7 +59,7 @@ static inline bmp4* bmp4_from_file(const char* fn) {
 
 static inline void bmp4_fill(bmp4 *b, unsigned color) {
 	size_t i = 0;
-	size_t max = b->width*b->height;
+	size_t max = (size_t)b->width*(size_t)b->height;
 	unsigned *d = b->data;
 	for(;i<max;i++) *(d++) = color;
 }
@@ -92,7 +94,7 @@ static inline unsigned char* bmp3_scanline(bmp3* b, int y) {
 static inline void bmp3_to_bmp4(bmp3* in, bmp4 *out) {
 	assert(in->width == out->width && in->height == out->height);
         size_t i = 0;
-        size_t max = in->width*in->height;
+        size_t max = (size_t)in->width*(size_t)in->height;
 	unsigned *d = out->data;
 	unsigned char* id = in->data;
 	#define ALPHA (0xff << 24)
@@ -103,7 +105,7 @@ static inline void bmp3_to_bmp4(bmp3* in, bmp4 *out) {
 static inline void bmp4_to_bmp3(bmp4* in, bmp3 *out) {
 	assert(in->width == out->width && in->height == out->height);
         size_t i = 0;
-        size_t max = in->width*in->height;
+        size_t max = (size_t)in->width*(size_t)in->height;
 	unsigned char *d = out->data;
 	unsigned* id = in->data;
 	for(;i<max;i++,d+=3,id++) {
@@ -146,7 +148,7 @@ static inline unsigned colget8(unsigned char col, int which) {
 static inline void bmp1_to_bmp4(bmp1* in, bmp4 *out, unsigned palette[256]) {
 	assert(in->width == out->width && in->height == out->height);
         size_t i = 0;
-        size_t max = in->width*in->height;
+        size_t max = (size_t)in->width*(size_t)in->height;
 	unsigned *d = out->data;
 	unsigned char* id = in->data;
 	#define ALPHA (0xff << 24)
@@ -208,7 +210,7 @@ static inline bmp4 *display_get_screenshot(display *d) {
 	bmp4 *r = bmp4_new(d->width, d->height);
 	if(!r) return 0;
 	unsigned *out = r->data, *in = (void*)d->surface->pixels;
-	size_t i, l = d->width*d->height;
+	size_t i, l = (size_t)d->width*(size_t)d->height;
 	for(i=0;i<l;i++) *(out++)=argb_to_rgba(*(in++));
 	return r;
 }
