@@ -380,8 +380,9 @@ static int change_page(int incr) {
 }
 
 static int change_scale(int incr) {
-	if (config_data.scale + incr <= 999 && config_data.scale + incr >= 0)
+	if (config_data.scale + incr <= 999 && config_data.scale + incr > 0)
 		config_data.scale += incr;
+	else return 0;
 	swap_image(prep_pages());
 	return incr < 0 ? 2 : 1;;
 }
