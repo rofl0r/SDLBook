@@ -166,7 +166,7 @@ static void draw() {
 
 static void draw_borders() {
 	int x, y, yline, xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
-	int ymax = MIN(ezsdl_get_height(), page_dims.h*2-scroll_line);
+	int ymax = ezsdl_get_height();
 	if (!xoff) return;
 	unsigned *vram = (void *) ezsdl_get_vram(), *ptr;
 	unsigned pitch = ezsdl_get_pitch()/4;
