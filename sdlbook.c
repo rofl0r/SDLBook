@@ -548,7 +548,7 @@ int main(int argc, char **argv) {
 					break;
 				case EV_MOUSEWHEEL:
 					if(left_ctrl_pressed || right_ctrl_pressed)
-						need_redraw = change_scale(event.yval*10);
+						need_redraw = change_scale(event.yval*-10);
 					else
 						need_redraw = change_scroll(event.yval*64);
 					break;
