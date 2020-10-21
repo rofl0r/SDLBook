@@ -36,7 +36,8 @@ static unsigned *image_data;
 
 static void update_title(void) {
 	char buf[64];
-	snprintf(buf, sizeof buf, "SDLBook [%d/%d] %s", curr_page, page_count, filename);
+	snprintf(buf, sizeof buf, "SDLBook [%d/%d] (%d%%) %s",
+			curr_page, page_count, config_data.scale, filename);
 	ezsdl_set_title(buf);
 }
 
@@ -384,6 +385,7 @@ static int change_scale(int incr) {
 		config_data.scale += incr;
 	else return 0;
 	swap_image(prep_pages());
+	update_title();
 	return incr < 0 ? 2 : 1;;
 }
 
