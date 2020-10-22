@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#ifndef EZSDL_BITDEPTH
+#define EZSDL_BITDEPTH 32
+#endif
+
 #pragma RcB2 LINK "-lSDL"
 
 #define SDL_RGB_LSHIFT 8
@@ -173,7 +177,7 @@ static inline void display_init(display *d, unsigned width, unsigned height, int
 	if(!init_done) SDL_Init(SDL_INIT_VIDEO);
 	init_done = 1;
 	if(!flags) flags = SDL_HWPALETTE;
-	d->surface = SDL_SetVideoMode(width, height, 32, flags);
+	d->surface = SDL_SetVideoMode(width, height, EZSDL_BITDEPTH, flags);
 	d->width = width;
 	d->height = height;
 	d->fs = 0;
