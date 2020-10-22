@@ -690,6 +690,7 @@ int main(int argc, char **argv) {
 	while(1) {
 		unsigned need_redraw = 0;
 		int scroll_dist = 0;
+		int scale_dist = 0;
 		enum eventtypes e;
 		while((e = ezsdl_getevent(&event)) != EV_NONE) {
 			need_redraw = 0;
@@ -707,7 +708,7 @@ int main(int argc, char **argv) {
 					break;
 				case EV_MOUSEWHEEL:
 					if(left_ctrl_pressed || right_ctrl_pressed)
-						need_redraw = change_scale(event.yval*-10);
+						scale_dist += event.yval*-10;
 					else
 						need_redraw = change_scroll(event.yval*64);
 					break;
@@ -811,6 +812,7 @@ int main(int argc, char **argv) {
 			if(need_redraw) game_tick(need_redraw);
 		}
 		if(scroll_dist) need_redraw = change_scroll(scroll_dist);
+		if(scale_dist) need_redraw |= change_scale(scale_dist);
 
 		if(game_tick(need_redraw)) {
 		}
