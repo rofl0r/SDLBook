@@ -5,7 +5,7 @@ bindir = $(prefix)/bin
 PROG = sdlbook
 SRCS = sdlbook.c
 
-LIBS = -ldjvulibre -lmupdf -lSDL -lm
+LIBS = -ldjvulibre -lmupdf -lSDL
 
 CFLAGS_N = 
 CPPFLAGS_N = 

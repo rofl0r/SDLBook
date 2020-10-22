@@ -11,7 +11,6 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/time.h>
-#include <math.h>
 #include <libdjvu/ddjvuapi.h>
 #include <mupdf/fitz.h>
 #include "ezsdl.h"
@@ -251,7 +250,7 @@ static unsigned* convert_rgb24_to_rgba(char* image, int w, int h, unsigned* new)
 }
 
 static void prepare_rect(ddjvu_rect_t *prect, ddjvu_rect_t* desired_rect,
-			int iw, int ih, int dpi)
+			double iw, double ih, int dpi)
 {
 	int enforce_aspect_ratio = 1;
 
@@ -269,8 +268,8 @@ static void prepare_rect(ddjvu_rect_t *prect, ddjvu_rect_t* desired_rect,
 		prect->h = (ih * 100) / dpi;
 	}
 	if (enforce_aspect_ratio) {
-		double dw = (double)iw / prect->w;
-		double dh = (double)ih / prect->h;
+		double dw = iw / prect->w;
+		double dh = ih / prect->h;
 		if (dw > dh)
 			prect->h = (int)(ih / dw);
 		else
@@ -292,8 +291,8 @@ static void* render_pdf_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *d
 		die("failed to load page %d\n", pageno);
 	}
 
-	int iw = ceil(bounds.x1 - bounds.x0);
-	int ih = ceil(bounds.y1 - bounds.y0);
+	double iw = bounds.x1 - bounds.x0;
+	double ih = bounds.y1 - bounds.y0;
 	int dpi = 72;
 
 	prepare_rect(&prect, desired_rect, iw, ih, dpi);
@@ -306,7 +305,7 @@ static void* render_pdf_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *d
 	fz_matrix ctm;
 	fz_pixmap *pix;
 
-	ctm = fz_scale((float) prect.w / iw, (float) prect.h / ih);
+	ctm = fz_scale((double) prect.w / iw, (double) prect.h / ih);
 	pix = fz_new_pixmap_from_page(PDOC.ctx, page, ctm, fz_device_rgb(PDOC.ctx), 0);
 
 	fz_drop_page(PDOC.ctx, page);
