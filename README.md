@@ -1,9 +1,9 @@
-SDLBook - a tiny djvu eBook reader
-==================================
+SDLBook - a tiny djvu/pdf eBook reader
+======================================
 
 ## What?
 
-Tiny djvu eBook reader using only `SDL` and `djvulibre`.
+Tiny eBook reader using only `SDL`, `djvulibre`, and `libmupdf`.
 
 ## Why?
 
@@ -14,6 +14,12 @@ and rendering to a video buffer instead of a file. I'm not interested in
 installing heavy-weight GUI toolkits such as QT4,5,GTK+3,4 etc just for
 a simple eBook reader. Nor in installing python3 just to run someone's
 meson build recipe.
+
+As I dislike the interruptive page jumping of `mupdf-x11`, I've added
+mupdf support too so it can take advantage of the smooth page border
+scrolling mechanism of SDLBook. Therefore it now also supports all
+the formats supported by mupdf, namely `pdf`, `epub`, `fb2`, `xps`,
+`openxps`, `cbz`, `cbr`.
 
 ## How?
 

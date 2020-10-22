@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 rofl0r. see COPYING for LICENSE details.
+ * Copyright (C) 2019-202 rofl0r. see COPYING for LICENSE details.
  */
 
 #include <unistd.h>
@@ -11,19 +11,41 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <math.h>
 #include <libdjvu/ddjvuapi.h>
+#include <mupdf/fitz.h>
 #include "ezsdl.h"
 #include "topaz.h"
 
-#pragma RcB2 LINK "-ldjvulibre" "-lSSL"
+#pragma RcB2 LINK "-ldjvulibre" "-lSSL" "-lmupdf"
 
 static struct config_data {
 	int w, h;
 	int scale;
 } config_data;
 
-static ddjvu_context_t *ctx;
-static ddjvu_document_t *doc;
+enum be_type {
+	BE_DJVU = 0,
+	BE_MUPDF,
+};
+static struct doc {
+	enum be_type be;
+	union {
+		struct djvu_doc {
+			ddjvu_context_t *ctx;
+			ddjvu_document_t *doc;
+		} ddoc;
+		struct pdf_doc {
+			fz_context *ctx;
+			fz_document *doc;
+		} pdoc;
+	} u;
+} doc;
+
+#define DDOC doc.u.ddoc
+#define PDOC doc.u.pdoc
+#define IS_DJVU (doc.be == BE_DJVU)
+
 static const char* filename;
 static int page_count, curr_page;
 static bmp4* bmp_font;
@@ -228,6 +250,91 @@ static unsigned* convert_rgb24_to_rgba(char* image, int w, int h, unsigned* new)
 	return new;
 }
 
+static void prepare_rect(ddjvu_rect_t *prect, ddjvu_rect_t* desired_rect,
+			int iw, int ih, int dpi)
+{
+	int enforce_aspect_ratio = 1;
+
+	prect->x = 0;
+	prect->y = 0;
+	if (desired_rect) {
+		prect->w = desired_rect->w;
+		prect->h = desired_rect->h;
+		enforce_aspect_ratio = 0;
+	} else if (config_data.scale > 0) {
+		prect->w = (unsigned int) (iw * (double)config_data.scale) / dpi;
+		prect->h = (unsigned int) (ih * (double)config_data.scale) / dpi;
+	} else {
+		prect->w = (iw * 100) / dpi;
+		prect->h = (ih * 100) / dpi;
+	}
+	if (enforce_aspect_ratio) {
+		double dw = (double)iw / prect->w;
+		double dh = (double)ih / prect->h;
+		if (dw > dh)
+			prect->h = (int)(ih / dw);
+		else
+			prect->w = (int)(iw / dh);
+	}
+}
+
+static void* render_pdf_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *desired_rect)
+{
+	ddjvu_rect_t prect;
+	/* mupdf platform/x11/pdfapp.c */
+	fz_page *page;
+	fz_rect bounds;
+	fz_try(PDOC.ctx) {
+		page = fz_load_page(PDOC.ctx, PDOC.doc, pageno);
+		bounds = fz_bound_page(PDOC.ctx, page);
+	}
+	fz_catch(PDOC.ctx) {
+		die("failed to load page %d\n", pageno);
+	}
+
+	int iw = ceil(bounds.x1 - bounds.x0);
+	int ih = ceil(bounds.y1 - bounds.y0);
+	int dpi = 72;
+
+	prepare_rect(&prect, desired_rect, iw, ih, dpi);
+
+	int rowsize = prect.w * 3;
+	void *image;
+	if(!(image = malloc(rowsize * prect.h)))
+		die("Cannot allocate image buffer for page %d", pageno);
+
+	fz_matrix ctm;
+	fz_pixmap *pix;
+
+	ctm = fz_scale((float) prect.w / iw, (float) prect.h / ih);
+	pix = fz_new_pixmap_from_page(PDOC.ctx, page, ctm, fz_device_rgb(PDOC.ctx), 0);
+
+	fz_drop_page(PDOC.ctx, page);
+
+	if (!pix) {
+		free(image);
+		return NULL;
+	}
+	assert(pix->w >= prect.w && pix->h >= prect.h);
+
+	unsigned char* out, *s;
+	unsigned x,y,xn;
+	for (y = 0, out = image; y < prect.h; y++) {
+		s = &pix->samples[y * pix->stride];
+		xn = 0;
+		for (x = 0; x < prect.w; x++, xn += pix->n) {
+			*(out++) = s[xn + 0];
+			*(out++) = s[xn + 1];
+			*(out++) = s[xn + 2];
+		}
+	}
+	fz_drop_pixmap(PDOC.ctx, pix);
+
+	*res_rect = prect;
+	return image;
+}
+
+
 static char* render_page(ddjvu_page_t *page, int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *desired_rect)
 {
 	ddjvu_rect_t prect; // pixels of image
@@ -242,29 +349,8 @@ static char* render_page(ddjvu_page_t *page, int pageno, ddjvu_rect_t *res_rect,
 	char *image = 0;
 	char white = 0xFF;
 	int rowsize;
-	int enforce_aspect_ratio = 1;
 
-	prect.x = 0;
-	prect.y = 0;
-	if (desired_rect) {
-		prect.w = desired_rect->w;
-		prect.h = desired_rect->h;
-		enforce_aspect_ratio = 0;
-	} else if (config_data.scale > 0) {
-		prect.w = (unsigned int) (iw * (double)config_data.scale) / dpi;
-		prect.h = (unsigned int) (ih * (double)config_data.scale) / dpi;
-	} else {
-		prect.w = (iw * 100) / dpi;
-		prect.h = (ih * 100) / dpi;
-	}
-	if (enforce_aspect_ratio) {
-		double dw = (double)iw / prect.w;
-		double dh = (double)ih / prect.h;
-		if (dw > dh)
-			prect.h = (int)(ih / dw);
-		else
-			prect.w = (int)(iw / dh);
-	}
+	prepare_rect(&prect, desired_rect, iw, ih, dpi);
 
 	rrect = prect;
 #if 0
@@ -308,8 +394,11 @@ static char* render_page(ddjvu_page_t *page, int pageno, ddjvu_rect_t *res_rect,
 static void* prep_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *desired_rect)
 {
 	if(pageno >= page_count) return 0;
+	if(!IS_DJVU)
+		return render_pdf_page(pageno, res_rect, desired_rect);
+
 	ddjvu_page_t *page;
-	if (!(page = ddjvu_page_create_by_pageno(doc, pageno)))
+	if (!(page = ddjvu_page_create_by_pageno(DDOC.doc, pageno)))
 		die("Can't access page %d.", pageno);
 	while (! ddjvu_page_decoding_done(page))
 		handle(TRUE);
@@ -357,11 +446,11 @@ static void* prep_pages() {
 
 static void handle(int wait) {
 	const ddjvu_message_t *msg;
-	if (!ctx)
+	if (!IS_DJVU || !DDOC.ctx)
 		return;
 	if (wait)
-		msg = ddjvu_message_wait(ctx);
-	while ((msg = ddjvu_message_peek(ctx)))	{
+		msg = ddjvu_message_wait(DDOC.ctx);
+	while ((msg = ddjvu_message_peek(DDOC.ctx)))	{
 		switch(msg->m_any.tag) {
 		case DDJVU_ERROR:
 			fprintf(stderr,"ddjvu: %s\n", msg->m_error.message);
@@ -371,7 +460,7 @@ static void handle(int wait) {
 		default:
 			break;
 		}
-		ddjvu_message_pop(ctx);
+		ddjvu_message_pop(DDOC.ctx);
 	}
 }
 
@@ -490,16 +579,65 @@ static void input_loop(const char* title, char *result) {
 	}
 }
 
+static void djvu_cleanup(void) {
+	if(!IS_DJVU) return;
+	if(DDOC.doc)
+		ddjvu_document_release(DDOC.doc);
+	if(DDOC.ctx)
+		ddjvu_context_release(DDOC.ctx);
+}
+
+static void pdf_cleanup(void) {
+	if(IS_DJVU) return;
+	if(PDOC.doc)
+		fz_drop_document(PDOC.ctx, PDOC.doc);
+	if(PDOC.ctx)
+		fz_drop_context(PDOC.ctx);
+}
+
 static int cleanup(void) {
-	if(doc)
-		ddjvu_document_release(doc);
-	if(ctx)
-		ddjvu_context_release(ctx);
+	djvu_cleanup();
+	pdf_cleanup();
 
 	read_write_config(0);
 
 	ezsdl_shutdown();
 
+	return 1;
+}
+
+static int open_djvu(char* app, const char *fn) {
+	doc.be = BE_DJVU;
+	if(!(DDOC.ctx = ddjvu_context_create(app)))
+		return 0;
+	if(!(DDOC.doc = ddjvu_document_create_by_filename(DDOC.ctx, fn, TRUE))) {
+		djvu_cleanup();
+		return 0;
+	}
+	return 1;
+}
+
+static void decode_doc(void) {
+	if(IS_DJVU) {
+		while (! ddjvu_document_decoding_done(DDOC.doc))
+			handle(TRUE);
+
+		if (ddjvu_document_decoding_error(DDOC.doc))
+			die("can't decode document");
+	}
+}
+
+static int open_pdf(const char *fn) {
+	doc.be = BE_MUPDF;
+	PDOC.ctx = fz_new_context(NULL, NULL, FZ_STORE_DEFAULT);
+	fz_register_document_handlers(PDOC.ctx);
+	fz_try (PDOC.ctx) {
+		PDOC.doc = fz_open_document(PDOC.ctx, fn);
+	} fz_catch (PDOC.ctx) {
+		fz_drop_context(PDOC.ctx);
+		PDOC.ctx = 0;
+		return 0;
+	}
 	return 1;
 }
 
@@ -509,21 +647,22 @@ int main(int argc, char **argv) {
 
 	filename = argv[1];
 
-	if(!(ctx = ddjvu_context_create(argv[0])))
-		die("can't create djvu context");
+	char *p = strrchr(filename, '.');
+	if(p && !strcasecmp(p, ".djvu")) {
+		if(!open_djvu(argv[0], filename))
+			die("can't open djvu document '%s'", filename);
+	} else if(!open_pdf(filename))
+		die("can't open mupdf document '%s'", filename);
 
-	if(!(doc = ddjvu_document_create_by_filename(ctx, filename, TRUE)))
-		die("can't open djvu document '%s'", filename);
+	decode_doc();
 
 	if(strrchr(filename, '/')) filename = strrchr(filename, '/')+1;
 
-	while (! ddjvu_document_decoding_done(doc))
-		handle(TRUE);
 
-	if (ddjvu_document_decoding_error(doc))
-		die("can't decode document");
+	page_count = IS_DJVU ?
+		ddjvu_document_get_pagenum(DDOC.doc) :
+		fz_count_pages(PDOC.ctx, PDOC.doc);
 
-	page_count = ddjvu_document_get_pagenum(doc);
 	curr_page = 0;
 
 	config_data.scale = 100;
