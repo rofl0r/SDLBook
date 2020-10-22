@@ -178,12 +178,31 @@ static void draw_borders() {
 			*ptr = ARGB(0,0,0);
 }
 
+static void draw_bottom() {
+	int x, y, yline;
+	int xmax, ymax, ymin;
+	ymin = page_dims.h*2-scroll_line;
+	if(ymin < 0) return;
+	unsigned *ptr = (void *) ezsdl_get_vram();
+	unsigned pitch = ezsdl_get_pitch()/4;
+	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
+	ymax = ezsdl_get_height();
+	xmax = MIN(ezsdl_get_width(), page_dims.w);
+	for(y = ymin; y < ymax; y++) {
+		yline = y*pitch + xoff;
+		for (x = 0; x < xmax; x++)
+			ptr[yline + x] = ARGB(0,0,0);
+	}
+}
+
+
 static int game_tick(int need_redraw) {
 	long long ms_used = 0;
 	if(need_redraw) {
 		long long tstamp = ezsdl_getutime64();
 		draw();
 		if(need_redraw == 2) draw_borders();
+		draw_bottom();
 		ezsdl_refresh();
 		ms_used = ezsdl_getutime64() - tstamp;
 	}
