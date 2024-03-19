@@ -182,6 +182,7 @@ static void draw() {
 	for(y = 0; y < ymax; y++) {
 		yline = y*pitch + xoff;
 		for (x = 0; x < xmax; x++)
+			
 			ptr[yline + x] = get_image_pixel(x+scroll_line_h, y+scroll_line_v);
 	}
 }
@@ -694,10 +695,12 @@ int main(int argc, char **argv) {
 	unsigned right_ctrl_pressed = 0;
 	unsigned mb_left_down = 0;
 	unsigned mouse_y = 0;
+	unsigned mouse_x = 0;
 
 	while(1) {
 		unsigned need_redraw = 0;
-		int scroll_dist = 0;
+		int scroll_dist_v = 0;
+		int scroll_dist_h = 0;
 		int scale_dist = 0;
 		enum eventtypes e;
 		while((e = ezsdl_getevent(&event)) != EV_NONE) {
@@ -711,8 +714,12 @@ int main(int argc, char **argv) {
 					break;
 				case EV_MOUSEMOVE:
 					if(mb_left_down && mouse_y != event.yval)
-						scroll_dist += mouse_y-event.yval;
+						scroll_dist_v += mouse_y-event.yval;
+					if(mb_left_down && mouse_x != event.xval) 
+						scroll_dist_h += mouse_x-event.xval;
 					mouse_y = event.yval;
+					mouse_x = event.xval;
+					
 					break;
 				case EV_MOUSEWHEEL:
 					if(left_ctrl_pressed || right_ctrl_pressed)
@@ -827,7 +834,8 @@ int main(int argc, char **argv) {
 			}
 			if(need_redraw) game_tick(need_redraw);
 		}
-		if(scroll_dist) need_redraw = change_scroll_v(scroll_dist);
+		if(scroll_dist_v) need_redraw = change_scroll_v(scroll_dist_v);
+		if(scroll_dist_h) need_redraw = change_scroll_h(scroll_dist_h);
 		if(scale_dist) need_redraw |= change_scale(scale_dist);
 
 		if(game_tick(need_redraw)) {
