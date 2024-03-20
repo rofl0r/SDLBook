@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 #include <assert.h>
 #include <sys/time.h>
 #include <libdjvu/ddjvuapi.h>
@@ -512,13 +513,13 @@ static int change_scroll(int incr) {
 }
 
 #define HELP_TEXT \
-	"HELP SCREEN - TYPE ENTER TO EXIT\n" \
+	"HELP SCREEN - HIT ANY KEY TO EXIT\n" \
 	"UP, DOWN ARROW - SCROLL 32 PIX\n" \
 	"CTRL + UP, DOWN ARROW - SCROLL 96 PIX\n" \
 	"PAGE_UP/DOWN - SCROLL ONE PAGE\n" \
 	"KEYPAD +/- OR CTRL-WHEEL - ZOOM\n" \
 	"G - ENTER PAGE NUMBER\n" \
-	"Q - QUIT\n" \
+	"Q/ESC - QUIT\n" \
 	"F1 - SHOW HELP SCREEN\n"
 
 static int get_return_count(const char* text) {
@@ -537,8 +538,13 @@ static void draw_font_lines(const char* text, struct spritesheet *font,
 		yy += 10*2;
 	} while((p = strchr(p, '\n')), p++);
 }
+enum input_flags {
+	INPUT_LOOP_RET,
+	INPUT_LOOP_NUMERIC
+};
 
-static void input_loop(const char* title, char *result) {
+static void input_loop(const char* title, char *result, enum input_flags flags)
+{
 	int ret_count = get_return_count(title);
 	if(!ret_count) ret_count = 1;
 	int desired_height = (ret_count+2) * 10 * 2;
@@ -560,12 +566,17 @@ static void input_loop(const char* title, char *result) {
 				*p = 0;
 				goto drawit;
 			case SDLK_RETURN: case SDLK_ESCAPE:
+		out:;
 				*p = 0;
 				ezsdl_clear();
 				return;
 			default:
-				*(p++) = event.which;
-				*p = 0;
+				if(flags == INPUT_LOOP_RET)
+					goto out;
+				else if(flags == INPUT_LOOP_NUMERIC && isdigit(event.which) && (p - result < 20)) {
+					*(p++) = event.which;
+					*p = 0;
+				}
 			drawit:
 				ezsdl_fill_rect(8, desired_height - 10*2, ezsdl_get_width() -8, MIN(desired_height, ezsdl_get_height()), RGB(0xff,0x00,0x00), 1);
 				draw_font(result, &ss_font, 8, desired_height - 10*2, 2);
@@ -782,7 +793,7 @@ int main(int argc, char **argv) {
 							{
 								char buf[32];
 								buf[0] = 0;
-								input_loop(HELP_TEXT, buf);
+								input_loop(HELP_TEXT, buf, INPUT_LOOP_RET);
 								need_redraw = 1;
 							}
 							break;
@@ -791,7 +802,7 @@ int main(int argc, char **argv) {
 							{
 								char buf[32];
 								buf[0] = 0;
-								input_loop("enter page no", buf);
+								input_loop("enter page no", buf, INPUT_LOOP_NUMERIC);
 								if(*buf) set_page(atoi(buf));
 								need_redraw = 1;
 							}
