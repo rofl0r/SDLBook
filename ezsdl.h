@@ -245,7 +245,8 @@ static inline unsigned spritesheet_getspritestart(struct spritesheet *ss, unsign
 
 static inline void display_draw_sprite(display *d, struct spritesheet* ss, unsigned sprite_no, unsigned sx, unsigned sy, unsigned scale) {
 	if(!scale) scale = 1;
-	assert(d->width >= sx+ss->sprite_w*scale && d->height >= sy+ss->sprite_h*scale);
+	if(!(d->width >= sx+ss->sprite_w*scale && d->height >= sy+ss->sprite_h*scale))
+		return;
 	unsigned x,xx,y,yd,ys,pitch=d->surface->pitch/sizeof(unsigned);
 	unsigned xscale,yscale;
 	unsigned transp_col = ss->bitmap->data[0];
