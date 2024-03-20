@@ -3,6 +3,7 @@
  */
 
 #include <unistd.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -538,7 +539,7 @@ static void draw_font_lines(const char* text, struct spritesheet *font,
 	} while((p = strchr(p, '\n')), p++);
 }
 
-static void input_loop(const char* title, char *result) {
+static void input_loop(const char* title, char *result, bool help_view) {
 	int ret_count = get_return_count(title);
 	if(!ret_count) ret_count = 1;
 	int desired_height = (ret_count+2) * 10 * 2;
@@ -558,19 +559,22 @@ static void input_loop(const char* title, char *result) {
 			case SDLK_BACKSPACE:
 				if(p > result) p--;
 				*p = 0;
-				goto drawit;
-			case SDLK_RETURN: case SDLK_ESCAPE:
+				if(!help_view)
+					goto drawit;
+			case SDLK_RETURN: case SDLK_ESCAPE: case SDLK_F1:
 				*p = 0;
 				ezsdl_clear();
 				return;
 			default:
-				*(p++) = event.which;
-				*p = 0;
-			drawit:
-				ezsdl_fill_rect(8, desired_height - 10*2, ezsdl_get_width() -8, MIN(desired_height, ezsdl_get_height()), RGB(0xff,0x00,0x00), 1);
-				draw_font(result, &ss_font, 8, desired_height - 10*2, 2);
-				ezsdl_update_region(0, 0, ezsdl_get_width(), MIN(desired_height, ezsdl_get_height()));
-				break;
+				if(!help_view) {
+					*(p++) = event.which;
+					*p = 0;
+					drawit:
+						ezsdl_fill_rect(8, desired_height - 10*2, ezsdl_get_width() -8, MIN(desired_height, ezsdl_get_height()), RGB(0xff,0x00,0x00), 1);
+						draw_font(result, &ss_font, 8, desired_height - 10*2, 2);
+						ezsdl_update_region(0, 0, ezsdl_get_width(), MIN(desired_height, ezsdl_get_height()));
+						break;
+				}
 			}
 			break;
 		default: break;
@@ -782,7 +786,7 @@ int main(int argc, char **argv) {
 							{
 								char buf[32];
 								buf[0] = 0;
-								input_loop(HELP_TEXT, buf);
+								input_loop(HELP_TEXT, buf, true);
 								need_redraw = 1;
 							}
 							break;
@@ -791,7 +795,7 @@ int main(int argc, char **argv) {
 							{
 								char buf[32];
 								buf[0] = 0;
-								input_loop("enter page no", buf);
+								input_loop("enter page no", buf, false);
 								if(*buf) set_page(atoi(buf));
 								need_redraw = 1;
 							}
