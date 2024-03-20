@@ -182,7 +182,6 @@ static void draw() {
 	for(y = 0; y < ymax; y++) {
 		yline = y*pitch + xoff;
 		for (x = 0; x < xmax; x++)
-			
 			ptr[yline + x] = get_image_pixel(x+scroll_line_h, y+scroll_line_v);
 	}
 }
@@ -517,6 +516,8 @@ static int change_scroll_h(int incr) {
 	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
 	if(scroll_line_h + incr >= 0 && scroll_line_h + incr <= page_dims.w - ezsdl_get_width() && ezsdl_get_width() <= (int)page_dims.w)
 		scroll_line_h += incr;
+	else if (scroll_line_h + incr < 0 && incr == -96)
+		scroll_line_h = 0;
 	return 1;
 }
 
@@ -715,17 +716,24 @@ int main(int argc, char **argv) {
 				case EV_MOUSEMOVE:
 					if(mb_left_down && mouse_y != event.yval)
 						scroll_dist_v += mouse_y-event.yval;
-					if(mb_left_down && mouse_x != event.xval) 
+					if(mb_left_down && mouse_x != event.xval)
 						scroll_dist_h += mouse_x-event.xval;
 					mouse_y = event.yval;
 					mouse_x = event.xval;
-					
 					break;
 				case EV_MOUSEWHEEL:
-					if(left_ctrl_pressed || right_ctrl_pressed)
+					if(left_ctrl_pressed || right_ctrl_pressed) {
 						scale_dist += event.yval*-10;
-					else
+						if (scale_dist > 0) {
+							change_scroll_h(+96);
+							change_scroll_v(+64);
+						} else {
+							change_scroll_h(-96);
+							change_scroll_v(-64);
+						}
+					} else {
 						need_redraw = change_scroll_v(event.yval*64);
+					}
 					break;
 				case EV_NEEDREDRAW: case EV_RESIZE:
 					need_redraw = 1;
@@ -744,9 +752,13 @@ int main(int argc, char **argv) {
 							goto dun_goofed;
 						case SDLK_KP_PLUS:
 							need_redraw = change_scale(+10);
+							change_scroll_h(+96);
+							change_scroll_v(+64);
 							break;
 						case SDLK_KP_MINUS:
 							need_redraw = change_scale(-10);
+							change_scroll_h(-96);
+							change_scroll_v(-64);
 							break;
 						case SDLK_PAGEDOWN:
 							need_redraw = change_scroll_v(+page_dims.h);
