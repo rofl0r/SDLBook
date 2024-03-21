@@ -185,8 +185,9 @@ static inline void display_init(display *d, unsigned width, unsigned height, int
 	if(old && old != d->surface) SDL_FreeSurface(old);
 }
 
+static inline void display_toggle_fullscreen_i(display *d, int update);
 static inline void display_shutdown(display *d) {
-        if(d->fs) SDL_WM_ToggleFullScreen(d->surface);
+        if(d->fs) display_toggle_fullscreen_i(d, 0);
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
@@ -324,14 +325,20 @@ static inline void display_clear(display *d) {
                 ptr[y*pitch + x] = 0;
 }
 
-static inline void display_toggle_fullscreen(display *d) {
+static inline void display_toggle_fullscreen_i(display *d, int update) {
 	d->fs = !d->fs;
 	SDL_WM_ToggleFullScreen(d->surface);
+	if(!update) return;
 	SDL_Delay(1);
 	//display_clear(d);
 	SDL_UpdateRect(d->surface,0,0,d->width,d->height);
 	SDL_Delay(1);
 }
+
+static inline void display_toggle_fullscreen(display *d) {
+	display_toggle_fullscreen_i(d, 1);
+}
+
 
 #if 0
 static inline void display_hline(display *d, unsigned color, unsigned x, unsigned y, unsigned len, unsigned scale) {
