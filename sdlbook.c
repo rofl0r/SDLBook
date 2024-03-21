@@ -722,18 +722,10 @@ int main(int argc, char **argv) {
 					mouse_x = event.xval;
 					break;
 				case EV_MOUSEWHEEL:
-					if(left_ctrl_pressed || right_ctrl_pressed) {
+					if(left_ctrl_pressed || right_ctrl_pressed)
 						scale_dist += event.yval*-10;
-						if (scale_dist > 0) {
-							change_scroll_h(+96);
-							change_scroll_v(+64);
-						} else {
-							change_scroll_h(-96);
-							change_scroll_v(-64);
-						}
-					} else {
+					else
 						need_redraw = change_scroll_v(event.yval*64);
-					}
 					break;
 				case EV_NEEDREDRAW: case EV_RESIZE:
 					need_redraw = 1;
@@ -752,13 +744,9 @@ int main(int argc, char **argv) {
 							goto dun_goofed;
 						case SDLK_KP_PLUS:
 							need_redraw = change_scale(+10);
-							change_scroll_h(+96);
-							change_scroll_v(+64);
 							break;
 						case SDLK_KP_MINUS:
 							need_redraw = change_scale(-10);
-							change_scroll_h(-96);
-							change_scroll_v(-64);
 							break;
 						case SDLK_PAGEDOWN:
 							need_redraw = change_scroll_v(+page_dims.h);
@@ -852,8 +840,8 @@ int main(int argc, char **argv) {
 			}
 			if(need_redraw) game_tick(need_redraw);
 		}
-		if(scroll_dist_v) need_redraw = change_scroll_v(scroll_dist_v);
-		if(scroll_dist_h) need_redraw = change_scroll_h(scroll_dist_h);
+		if(scroll_dist_v) need_redraw |= change_scroll_v(scroll_dist_v);
+		if(scroll_dist_h) need_redraw |= change_scroll_h(scroll_dist_h);
 		if(scale_dist) need_redraw |= change_scale(scale_dist);
 
 		if(game_tick(need_redraw)) {
