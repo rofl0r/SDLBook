@@ -213,7 +213,7 @@ static inline void ezsdl_set_title(const char* text) {
 static inline bmp4 *display_get_screenshot(display *d) {
 	bmp4 *r = bmp4_new(d->width, d->height);
 	if(!r) return 0;
-	unsigned *out = r->data, *in = (void*)d->surface->pixels;
+	unsigned *out = r->data, *in = display_get_vram(d);
 	size_t i, l = (size_t)d->width*(size_t)d->height;
 	for(i=0;i<l;i++) *(out++)=argb_to_rgba(*(in++));
 	return r;
@@ -247,59 +247,64 @@ static inline void display_draw_sprite(display *d, struct spritesheet* ss, unsig
 	if(!scale) scale = 1;
 	if(!(d->width >= sx+ss->sprite_w*scale && d->height >= sy+ss->sprite_h*scale))
 		return;
-	unsigned x,xx,y,yd,ys,pitch=d->surface->pitch/sizeof(unsigned);
+	unsigned x,xx,y,yd,ys,pitch=display_get_pitch(d)/sizeof(unsigned);
 	unsigned xscale,yscale;
 	unsigned transp_col = ss->bitmap->data[0];
 	unsigned sprite_pitch = ss->sprites_per_row * ss->sprite_w;
+	void *pixels = display_get_vram(d);
 	for(y=0,yd=sy*pitch, ys=spritesheet_getspritestart(ss, sprite_no, y); y < ss->sprite_h; y++,ys+=sprite_pitch)
 		for(yscale=0; yscale<scale; yscale++,yd+=pitch)
 			for(x=0, xx=sx; x < ss->sprite_w; x++)
 				for(xscale = 0; xscale < scale; xscale++,xx++)
 					if(ss->bitmap->data[ys+x] != transp_col)
-					((unsigned*)d->surface->pixels)[yd + xx] = rgba_to_argb(ss->bitmap->data[ys+x]);
+					((unsigned*)pixels)[yd + xx] = rgba_to_argb(ss->bitmap->data[ys+x]);
 }
 
 static inline void display_draw(display *d, bmp4* b, unsigned sx, unsigned sy, unsigned scale) {
 	if(!scale) scale = 1;
 	assert(d->width >= sx+b->width*scale && d->height >= sy+b->height*scale);
-	unsigned x,xx,y,yd,ys,pitch=d->surface->pitch/sizeof(unsigned);
+	unsigned x,xx,y,yd,ys,pitch=display_get_pitch(d)/sizeof(unsigned);
 	unsigned xscale,yscale;
+	void* pixels = display_get_vram(d);
 	for(y=0,yd=sy*pitch, ys=0; y < b->height; y++,ys+=b->width)
 		for(yscale=0; yscale<scale; yscale++,yd+=pitch)
 			for(x=0, xx=sx; x < b->width; x++)
 				for(xscale = 0; xscale < scale; xscale++,xx++)
-					((unsigned*)d->surface->pixels)[yd + xx] = rgba_to_argb(b->data[ys+x]);
+					((unsigned*)pixels)[yd + xx] = rgba_to_argb(b->data[ys+x]);
 	//SDL_UpdateRect(d->surface, sx, sy, b->width*scale, b->height*scale);
 }
 
 static inline void display_draw_vline(display *d, unsigned sx, unsigned sy, unsigned height, unsigned color, unsigned scale) {
+	void *pixels = display_get_vram(d);
 	if(!scale) scale = 1;
 	assert(d->width >= sx && d->height >= sy+height*scale);
-	unsigned y,yd,yscale,xscale,pitch=d->surface->pitch/sizeof(unsigned);
+	unsigned y,yd,yscale,xscale,pitch=display_get_pitch(d)/sizeof(unsigned);
 	for(y = sy, yd=sy*pitch; y < sy+height; y++) for(yscale=0;yscale<scale;yscale++,yd+=pitch)
 	for(xscale=0; xscale<scale; xscale++)
-		((unsigned*)d->surface->pixels)[yd + sx + xscale] = rgba_to_argb(color);
+		((unsigned*)pixels)[yd + sx + xscale] = rgba_to_argb(color);
 }
 
 static inline void display_draw_hline(display *d, unsigned sx, unsigned sy, unsigned width, unsigned color, unsigned scale) {
+	void *pixels = display_get_vram(d);
 	if(!scale) scale = 1;
 	assert(d->width >= sx+width*scale && d->height >= sy);
-	unsigned x,yd,yscale,pitch=d->surface->pitch/sizeof(unsigned);
+	unsigned x,yd,yscale,pitch=display_get_pitch(d)/sizeof(unsigned);
 	for(yscale = 0, yd=sy*pitch; yscale < scale; yscale++,yd+=pitch)
 	for(x=sx;x<sx+width*scale;x++)
-		((unsigned*)d->surface->pixels)[yd + x] = rgba_to_argb(color);
+		((unsigned*)pixels)[yd + x] = rgba_to_argb(color);
 }
 
 static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsigned width, unsigned height, unsigned color, unsigned scale) {
+	void *pixels = display_get_vram(d);
 	if(!scale) scale = 1;
 	assert(d->width >= sx+width*scale && d->height >= sy+height*scale);
-	unsigned x,xx,y,yd,pitch=d->surface->pitch/sizeof(unsigned);
+	unsigned x,xx,y,yd,pitch=display_get_pitch(d)/sizeof(unsigned);
 	unsigned xscale,yscale;
 	for(y=0,yd=sy*pitch; y < height; y++)
 		for(yscale=0; yscale<scale; yscale++,yd+=pitch)
 			for(x=0, xx=sx; x < width; x++)
 				for(xscale = 0; xscale < scale; xscale++,xx++)
-					((unsigned*)d->surface->pixels)[yd + xx] = rgba_to_argb(color);
+					((unsigned*)pixels)[yd + xx] = rgba_to_argb(color);
 }
 
 static inline void video_update_region(display *d, unsigned x, unsigned y, unsigned w, unsigned h)
@@ -312,8 +317,8 @@ static inline void display_refresh(display *d) {
 }
 
 static inline void display_clear(display *d) {
-        unsigned *ptr = (unsigned *) d->surface->pixels;
-        unsigned pitch = d->surface->pitch/4;
+        unsigned *ptr = display_get_vram(d);
+        unsigned pitch = display_get_pitch(d)/4;
         unsigned x, y;
         for(y = 0; y < d->height; y++) for (x = 0; x < d->width; x++)
                 ptr[y*pitch + x] = 0;
