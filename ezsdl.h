@@ -328,7 +328,7 @@ static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsig
 	display_release_vram(d);
 }
 
-static inline void video_update_region(display *d, unsigned x, unsigned y, unsigned w, unsigned h)
+static inline void display_update_region(display *d, unsigned x, unsigned y, unsigned w, unsigned h)
 {
 	SDL_UpdateRect(d->surface, x, y, w, h);
 }
@@ -514,7 +514,7 @@ static inline void ezsdl_refresh(void) {
 }
 
 static inline void ezsdl_update_region(unsigned x, unsigned y, unsigned w, unsigned h) {
-	video_update_region(&ezsdl.disp, x, y, w, h);
+	display_update_region(&ezsdl.disp, x, y, w, h);
 }
 
 static inline void ezsdl_setcb(enum cbtypes type, eventcallbackfunc cb, void* data) {
