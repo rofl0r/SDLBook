@@ -779,9 +779,15 @@ int main(int argc, char **argv) {
 								need_redraw = change_scroll_v(+32);
 							break;
 						case SDLK_LEFT:
+							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
+								need_redraw = change_scroll_h(-96);
+							else
 								need_redraw = change_scroll_h(-32);
 							break;
 						case SDLK_RIGHT:
+							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
+								need_redraw = change_scroll_h(+96);
+							else
 								need_redraw = change_scroll_h(+32);
 							break;
 						case SDLK_RETURN:
