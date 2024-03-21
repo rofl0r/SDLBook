@@ -1,7 +1,11 @@
 #ifndef EZSDL_H
 #define EZSDL_H
 
+#ifdef USE_SDL2
+#include <SDL2/SDL.h>
+#else
 #include <SDL/SDL.h>
+#endif
 #include <assert.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -10,7 +14,17 @@
 #define EZSDL_BITDEPTH 32
 #endif
 
+#if EZSDL_BITDEPTH == 32
+#define EZSDL_PIXEL_FMT SDL_PIXELFORMAT_ARGB8888
+#else
+#define EZSDL_PIXEL_FMT SDL_PIXELFORMAT_RGB565
+#endif
+
+#ifdef USE_SDL2
+#pragma RcB2 LINK "-lSDL2"
+#else
 #pragma RcB2 LINK "-lSDL"
+#endif
 
 #define SDL_RGB_LSHIFT 8
 #define RGB_RED(X) 0 | ((X) << (16+SDL_RGB_LSHIFT))
@@ -165,7 +179,13 @@ static inline void bmp1_to_bmp4(bmp1* in, bmp4 *out, unsigned palette[256]) {
 
 typedef struct display {
 	unsigned width, height;
+#ifdef USE_SDL2
+	SDL_Window *win;
+	SDL_Renderer *ren;
+	SDL_Texture *tex;
+#else
 	SDL_Surface *surface;
+#endif
 	int fs;
 	int flags;
 } display;
@@ -173,16 +193,32 @@ typedef struct display {
 /* display pointed to is assumed to be zero-filled */
 static inline void display_init(display *d, unsigned width, unsigned height, int flags) {
 	static int init_done;
+#ifndef USE_SDL2
 	SDL_Surface *old = d->surface;
+	if(!flags) flags = SDL_HWPALETTE;
+#endif
 	if(!init_done) SDL_Init(SDL_INIT_VIDEO);
 	init_done = 1;
-	if(!flags) flags = SDL_HWPALETTE;
+#ifdef USE_SDL2
+	if(!d->win) {
+		d->win = SDL_CreateWindow("ezsdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
+		SDL_DisplayMode dm = {.format = EZSDL_PIXEL_FMT, .w = width, .h = height };
+		SDL_SetWindowDisplayMode(d->win, &dm);
+	}
+	if(d->tex)
+		SDL_DestroyTexture(d->tex);
+	if(d->ren)
+		SDL_DestroyRenderer(d->ren);
+	d->ren = SDL_CreateRenderer(d->win, -1, SDL_RENDERER_ACCELERATED|SDL_RENDERER_TARGETTEXTURE);
+	d->tex = SDL_CreateTexture(d->ren, EZSDL_PIXEL_FMT, SDL_TEXTUREACCESS_STREAMING, width, height);
+#else
 	d->surface = SDL_SetVideoMode(width, height, EZSDL_BITDEPTH, flags);
+	if(old && old != d->surface) SDL_FreeSurface(old);
+#endif
 	d->width = width;
 	d->height = height;
 	d->fs = 0;
 	d->flags = flags;
-	if(old && old != d->surface) SDL_FreeSurface(old);
 }
 
 static inline void display_toggle_fullscreen_i(display *d, int update);
@@ -193,11 +229,19 @@ static inline void display_shutdown(display *d) {
 
 static inline void display_get_vram_and_pitch(display *d, void** pixels, unsigned *pitch)
 {
+#ifdef USE_SDL2
+	SDL_LockTexture(d->tex, 0, pixels, pitch);
+#else
 	*pitch = d->surface->pitch;
 	*pixels = d->surface->pixels;
+#endif
 }
 
-static inline void display_release_vram(display *d) {}
+static inline void display_release_vram(display *d) {
+#ifdef USE_SDL2
+	SDL_UnlockTexture(d->tex);
+#endif
+}
 
 static inline unsigned display_get_width(display *d) {
 	return d->width;
@@ -205,10 +249,6 @@ static inline unsigned display_get_width(display *d) {
 
 static inline unsigned display_get_height(display *d) {
 	return d->height;
-}
-
-static inline void ezsdl_set_title(const char* text) {
-	SDL_WM_SetCaption(text, 0);
 }
 
 static inline bmp4 *display_get_screenshot(display *d) {
@@ -330,7 +370,13 @@ static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsig
 
 static inline void display_update_region(display *d, unsigned x, unsigned y, unsigned w, unsigned h)
 {
+#ifdef USE_SDL2
+	SDL_Rect area = {.x = x, .y= y, .w = w, .h = h};
+	SDL_RenderCopy(d->ren, d->tex, &area, &area);
+	SDL_RenderPresent(d->ren);
+#else
 	SDL_UpdateRect(d->surface, x, y, w, h);
+#endif
 }
 
 static inline void display_refresh(display *d) {
@@ -351,6 +397,10 @@ static inline void display_clear(display *d) {
 }
 
 static inline void display_toggle_fullscreen_i(display *d, int update) {
+#ifdef USE_SDL2
+	SDL_SetWindowFullscreen(d->win, d->fs ? 0 : SDL_WINDOW_FULLSCREEN);
+	d->fs = !d->fs;
+#else
 	d->fs = !d->fs;
 	SDL_WM_ToggleFullScreen(d->surface);
 	if(!update) return;
@@ -358,6 +408,7 @@ static inline void display_toggle_fullscreen_i(display *d, int update) {
 	//display_clear(d);
 	SDL_UpdateRect(d->surface,0,0,d->width,d->height);
 	SDL_Delay(1);
+#endif
 }
 
 static inline void display_toggle_fullscreen(display *d) {
@@ -442,10 +493,14 @@ static void event_process_mousedown(struct inp* inp, SDL_Event* sdl_event, struc
 }
 
 static void event_process_mousewheel(struct inp* inp, SDL_Event* sdl_event, struct event *myevent) {
+#ifdef USE_SDL2
+	myevent->yval = sdl_event->wheel.y * -1;
+#else
 	if(sdl_event->button.button == SDL_BUTTON_WHEELDOWN)
 		myevent->yval = 1;
 	else
 		myevent->yval = -1;
+#endif
 }
 
 static void event_process_keydown(struct inp* inp, SDL_Event* sdl_event, struct event *myevent) {
@@ -454,8 +509,13 @@ static void event_process_keydown(struct inp* inp, SDL_Event* sdl_event, struct 
 }
 
 static void event_process_resize(struct inp* inp, SDL_Event* sdl_event, struct event *myevent) {
+#ifdef USE_SDL2
+	myevent->xval = sdl_event->window.data1;
+	myevent->yval = sdl_event->window.data2;
+#else
 	myevent->xval = sdl_event->resize.w;
 	myevent->yval = sdl_event->resize.h;
+#endif
 }
 
 static long long ezsdl_getutime64(void) {
@@ -475,6 +535,14 @@ static inline void ezsdl_init(unsigned width, unsigned height, int flags) {
 
 static inline void ezsdl_shutdown(void) {
 	display_shutdown(&ezsdl.disp);
+}
+
+static inline void ezsdl_set_title(const char* text) {
+#ifdef USE_SDL2
+	SDL_SetWindowTitle(ezsdl.disp.win, text);
+#else
+	SDL_WM_SetCaption(text, 0);
+#endif
 }
 
 static inline void ezsdl_draw(bmp4*b, unsigned x, unsigned y, int scale) {
@@ -563,22 +631,34 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 				e = EV_MOUSEMOVE;
 				t = CB_MOUSEMOVE;
 				break;
+#ifdef USE_SDL2
+			case SDL_MOUSEWHEEL:
+				e = EV_MOUSEWHEEL;
+				t = CB_MOUSEWHEEL;
+				break;
+#endif
 			case SDL_MOUSEBUTTONDOWN:
+#ifndef USE_SDL2
 				if(sdl_event.button.button == SDL_BUTTON_WHEELDOWN ||
 				   sdl_event.button.button == SDL_BUTTON_WHEELUP) {
 					e = EV_MOUSEWHEEL;
 					t = CB_MOUSEWHEEL;
-				} else {
+				} else
+#endif
+				{
 					e = EV_MOUSEDOWN;
 					t = CB_MOUSEDOWN;
 				}
 				break;
 			case SDL_MOUSEBUTTONUP:
+#ifndef USE_SDL2
 				if(sdl_event.button.button == SDL_BUTTON_WHEELDOWN ||
 				   sdl_event.button.button == SDL_BUTTON_WHEELUP) {
 					e = EV_MOUSEWHEEL;
 					t = CB_MOUSEWHEEL;
-				} else {
+				} else
+#endif
+				{
 					e = EV_MOUSEUP;
 					t = CB_MOUSEUP;
 				}
@@ -600,11 +680,21 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 				e = EV_KEYUP;
 				t = CB_KEYUP;
 				break;
+#ifndef USE_SDL2
 			case SDL_VIDEORESIZE:
 				display_init(&ezsdl.disp, sdl_event.resize.w, sdl_event.resize.h, ezsdl.disp.flags);
 				e = EV_RESIZE;
 				t = CB_RESIZE;
 				break;
+#else
+			case SDL_WINDOWEVENT:
+				if(sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
+					display_init(&ezsdl.disp, sdl_event.window.data1, sdl_event.window.data2, ezsdl.disp.flags);
+					e = EV_RESIZE;
+					t = CB_RESIZE;
+				}
+				break;
+#endif
 		}
 		if(t != CB_MAX) {
 			if(event_processors[t]) event_processors[t](in, &sdl_event, myevent);

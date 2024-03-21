@@ -694,14 +694,22 @@ int main(int argc, char **argv) {
 
 	read_write_config(1);
 
-	ezsdl_init(config_data.w, config_data.h, SDL_HWPALETTE | SDL_RESIZABLE);
+	ezsdl_init(config_data.w, config_data.h,
+#ifndef USE_SDL2
+		SDL_HWPALETTE | SDL_RESIZABLE
+#else
+		0
+#endif
+	);
 
 	image_data = prep_pages();
 
 	init_gfx();
 
 	SDL_ShowCursor(1);
+#ifndef USE_SDL2
 	SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+#endif
 	struct event event;
 
 	update_title();

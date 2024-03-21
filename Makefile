@@ -5,10 +5,18 @@ bindir = $(prefix)/bin
 PROG = sdlbook
 SRCS = sdlbook.c
 
-LIBS = -ldjvulibre -lmupdf -lSDL -lm
+ifeq ($(SDL2),)
+SDL_LIBS = -lSDL
+CPPF_SDL =
+else
+SDL_LIBS = -lSDL2
+CPPF_SDL = -DUSE_SDL2
+endif
+
+LIBS = -ldjvulibre -lmupdf $(SDL_LIBS) -lm
 
 CFLAGS_N = 
-CPPFLAGS_N = 
+CPPFLAGS_N = $(CPPF_SDL)
 LDFLAGS_N = 
 
 OBJS = $(SRCS:.c=.o)

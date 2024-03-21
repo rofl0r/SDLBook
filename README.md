@@ -3,7 +3,7 @@ SDLBook - a tiny djvu/pdf eBook reader
 
 ## What?
 
-Tiny eBook reader using only `SDL`, `djvulibre`, and `libmupdf`.
+Tiny eBook reader using only `SDL` or `SDL2`, `djvulibre`, and `libmupdf`.
 
 ## Why?
 
@@ -25,6 +25,7 @@ the formats supported by mupdf, namely `pdf`, `epub`, `fb2`, `xps`,
 
 - Install `SDL` and `djvulibre` libraries including development headers.
 - Compile using `gnu make` by running `make CFLAGS=-O2`.
+  if you want to use SDL2, run `make SDL2=1 CFLAGS=-O2` instead.
 - Install as root user by doing `make install prefix=/usr`.
 - Run like `sdlbook /path/to/file.djvu`
 - Press F1 to see available keyboard shortcuts
