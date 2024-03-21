@@ -191,12 +191,10 @@ static inline void display_shutdown(display *d) {
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
-static inline int display_get_pitch(display *d) {
-	return d->surface->pitch;
-}
-
-static inline unsigned *display_get_vram(display *d) {
-	return d->surface->pixels;
+static inline void display_get_vram_and_pitch(display *d, void** pixels, unsigned *pitch)
+{
+	*pitch = d->surface->pitch;
+	*pixels = d->surface->pixels;
 }
 
 static inline unsigned display_get_width(display *d) {
@@ -214,7 +212,10 @@ static inline void ezsdl_set_title(const char* text) {
 static inline bmp4 *display_get_screenshot(display *d) {
 	bmp4 *r = bmp4_new(d->width, d->height);
 	if(!r) return 0;
-	unsigned *out = r->data, *in = display_get_vram(d);
+	unsigned pitch, *out = r->data, *in;
+	void *pixels;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	in = pixels;
 	size_t i, l = (size_t)d->width*(size_t)d->height;
 	for(i=0;i<l;i++) *(out++)=argb_to_rgba(*(in++));
 	return r;
@@ -248,11 +249,14 @@ static inline void display_draw_sprite(display *d, struct spritesheet* ss, unsig
 	if(!scale) scale = 1;
 	if(!(d->width >= sx+ss->sprite_w*scale && d->height >= sy+ss->sprite_h*scale))
 		return;
-	unsigned x,xx,y,yd,ys,pitch=display_get_pitch(d)/sizeof(unsigned);
+	unsigned x,xx,y,yd,ys,pitch;
 	unsigned xscale,yscale;
 	unsigned transp_col = ss->bitmap->data[0];
 	unsigned sprite_pitch = ss->sprites_per_row * ss->sprite_w;
-	void *pixels = display_get_vram(d);
+	void *pixels;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	pitch /= sizeof(unsigned);
+
 	for(y=0,yd=sy*pitch, ys=spritesheet_getspritestart(ss, sprite_no, y); y < ss->sprite_h; y++,ys+=sprite_pitch)
 		for(yscale=0; yscale<scale; yscale++,yd+=pitch)
 			for(x=0, xx=sx; x < ss->sprite_w; x++)
@@ -264,9 +268,11 @@ static inline void display_draw_sprite(display *d, struct spritesheet* ss, unsig
 static inline void display_draw(display *d, bmp4* b, unsigned sx, unsigned sy, unsigned scale) {
 	if(!scale) scale = 1;
 	assert(d->width >= sx+b->width*scale && d->height >= sy+b->height*scale);
-	unsigned x,xx,y,yd,ys,pitch=display_get_pitch(d)/sizeof(unsigned);
+	unsigned x,xx,y,yd,ys,pitch;
 	unsigned xscale,yscale;
-	void* pixels = display_get_vram(d);
+	void* pixels;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	pitch /= sizeof(unsigned);
 	for(y=0,yd=sy*pitch, ys=0; y < b->height; y++,ys+=b->width)
 		for(yscale=0; yscale<scale; yscale++,yd+=pitch)
 			for(x=0, xx=sx; x < b->width; x++)
@@ -276,31 +282,37 @@ static inline void display_draw(display *d, bmp4* b, unsigned sx, unsigned sy, u
 }
 
 static inline void display_draw_vline(display *d, unsigned sx, unsigned sy, unsigned height, unsigned color, unsigned scale) {
-	void *pixels = display_get_vram(d);
+	void *pixels;
 	if(!scale) scale = 1;
 	assert(d->width >= sx && d->height >= sy+height*scale);
-	unsigned y,yd,yscale,xscale,pitch=display_get_pitch(d)/sizeof(unsigned);
+	unsigned y,yd,yscale,xscale,pitch;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	pitch /= sizeof(unsigned);
 	for(y = sy, yd=sy*pitch; y < sy+height; y++) for(yscale=0;yscale<scale;yscale++,yd+=pitch)
 	for(xscale=0; xscale<scale; xscale++)
 		((unsigned*)pixels)[yd + sx + xscale] = rgba_to_argb(color);
 }
 
 static inline void display_draw_hline(display *d, unsigned sx, unsigned sy, unsigned width, unsigned color, unsigned scale) {
-	void *pixels = display_get_vram(d);
+	void *pixels;
 	if(!scale) scale = 1;
 	assert(d->width >= sx+width*scale && d->height >= sy);
-	unsigned x,yd,yscale,pitch=display_get_pitch(d)/sizeof(unsigned);
+	unsigned x,yd,yscale,pitch;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	pitch /= sizeof(unsigned);
 	for(yscale = 0, yd=sy*pitch; yscale < scale; yscale++,yd+=pitch)
 	for(x=sx;x<sx+width*scale;x++)
 		((unsigned*)pixels)[yd + x] = rgba_to_argb(color);
 }
 
 static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsigned width, unsigned height, unsigned color, unsigned scale) {
-	void *pixels = display_get_vram(d);
+	void *pixels;
 	if(!scale) scale = 1;
 	assert(d->width >= sx+width*scale && d->height >= sy+height*scale);
-	unsigned x,xx,y,yd,pitch=display_get_pitch(d)/sizeof(unsigned);
+	unsigned x,xx,y,yd,pitch;
 	unsigned xscale,yscale;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	pitch /= sizeof(unsigned);
 	for(y=0,yd=sy*pitch; y < height; y++)
 		for(yscale=0; yscale<scale; yscale++,yd+=pitch)
 			for(x=0, xx=sx; x < width; x++)
@@ -318,11 +330,15 @@ static inline void display_refresh(display *d) {
 }
 
 static inline void display_clear(display *d) {
-        unsigned *ptr = display_get_vram(d);
-        unsigned pitch = display_get_pitch(d)/4;
-        unsigned x, y;
-        for(y = 0; y < d->height; y++) for (x = 0; x < d->width; x++)
-                ptr[y*pitch + x] = 0;
+	void *pixels;
+	unsigned *ptr;
+	unsigned pitch;
+	display_get_vram_and_pitch(d, &pixels, &pitch);
+	ptr = pixels;
+	pitch /= sizeof(unsigned);
+	unsigned x, y;
+	for(y = 0; y < d->height; y++) for (x = 0; x < d->width; x++)
+		ptr[y*pitch + x] = 0;
 }
 
 static inline void display_toggle_fullscreen_i(display *d, int update) {
@@ -500,12 +516,8 @@ static inline void ezsdl_sleep(unsigned ms) {
 	SDL_Delay(ms);
 }
 
-static inline int ezsdl_get_pitch(void) {
-        return display_get_pitch(&ezsdl.disp);
-}
-
-static inline unsigned *ezsdl_get_vram(void) {
-        return display_get_vram(&ezsdl.disp);
+static inline void ezsdl_get_vram_and_pitch(void **pixels, unsigned *pitch) {
+        display_get_vram_and_pitch(&ezsdl.disp, pixels, pitch);
 }
 
 static inline unsigned ezsdl_get_width(void) {

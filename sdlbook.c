@@ -172,11 +172,15 @@ static inline unsigned get_image_pixel(int x, int y) {
 
 static void draw() {
 	int x, y, yline;
-	unsigned *ptr = (void *) ezsdl_get_vram();
-	unsigned pitch = ezsdl_get_pitch()/4;
+	void *pixels;
+	unsigned *ptr;
+	unsigned pitch;
 	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
 	int xmax, ymax = page_dims.h*2;
 	if(scroll_line > ymax) return;
+	ezsdl_get_vram_and_pitch(&pixels, &pitch);
+	ptr = pixels;
+	pitch/=4;
 	ymax = MIN(ezsdl_get_height(), ymax-scroll_line),
 	xmax = MIN(ezsdl_get_width(), page_dims.w);
 	for(y = 0; y < ymax; y++) {
@@ -190,8 +194,12 @@ static void draw_borders() {
 	int x, y, yline, xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
 	int ymax = ezsdl_get_height();
 	if (!xoff) return;
-	unsigned *vram = (void *) ezsdl_get_vram(), *ptr;
-	unsigned pitch = ezsdl_get_pitch()/4;
+	void* pixels;
+	unsigned *vram, *ptr;
+	unsigned pitch;
+	ezsdl_get_vram_and_pitch(&pixels, &pitch);
+	vram = pixels;
+	pitch /= 4;
 	for(y = 0, yline = 0; y < ymax; y++, yline+=pitch)
 		for(x = 0, ptr=vram+yline; x < xoff; x++, ptr++)
 			*ptr = ARGB(0,0,0);
@@ -205,8 +213,12 @@ static void draw_bottom() {
 	int xmax, ymax, ymin;
 	ymin = page_dims.h*2-scroll_line;
 	if(ymin < 0) return;
-	unsigned *ptr = (void *) ezsdl_get_vram();
-	unsigned pitch = ezsdl_get_pitch()/4;
+	void *pixels;
+	unsigned *ptr;
+	unsigned pitch;
+	ezsdl_get_vram_and_pitch(&pixels, &pitch);
+	ptr = pixels;
+	pitch /= 4;
 	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
 	ymax = ezsdl_get_height();
 	xmax = MIN(ezsdl_get_width(), page_dims.w);
