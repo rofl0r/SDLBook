@@ -197,6 +197,8 @@ static inline void display_get_vram_and_pitch(display *d, void** pixels, unsigne
 	*pixels = d->surface->pixels;
 }
 
+static inline void display_release_vram(display *d) {}
+
 static inline unsigned display_get_width(display *d) {
 	return d->width;
 }
@@ -218,6 +220,7 @@ static inline bmp4 *display_get_screenshot(display *d) {
 	in = pixels;
 	size_t i, l = (size_t)d->width*(size_t)d->height;
 	for(i=0;i<l;i++) *(out++)=argb_to_rgba(*(in++));
+	display_release_vram(d);
 	return r;
 }
 
@@ -263,6 +266,7 @@ static inline void display_draw_sprite(display *d, struct spritesheet* ss, unsig
 				for(xscale = 0; xscale < scale; xscale++,xx++)
 					if(ss->bitmap->data[ys+x] != transp_col)
 					((unsigned*)pixels)[yd + xx] = rgba_to_argb(ss->bitmap->data[ys+x]);
+	display_release_vram(d);
 }
 
 static inline void display_draw(display *d, bmp4* b, unsigned sx, unsigned sy, unsigned scale) {
@@ -278,6 +282,7 @@ static inline void display_draw(display *d, bmp4* b, unsigned sx, unsigned sy, u
 			for(x=0, xx=sx; x < b->width; x++)
 				for(xscale = 0; xscale < scale; xscale++,xx++)
 					((unsigned*)pixels)[yd + xx] = rgba_to_argb(b->data[ys+x]);
+	display_release_vram(d);
 	//SDL_UpdateRect(d->surface, sx, sy, b->width*scale, b->height*scale);
 }
 
@@ -291,6 +296,7 @@ static inline void display_draw_vline(display *d, unsigned sx, unsigned sy, unsi
 	for(y = sy, yd=sy*pitch; y < sy+height; y++) for(yscale=0;yscale<scale;yscale++,yd+=pitch)
 	for(xscale=0; xscale<scale; xscale++)
 		((unsigned*)pixels)[yd + sx + xscale] = rgba_to_argb(color);
+	display_release_vram(d);
 }
 
 static inline void display_draw_hline(display *d, unsigned sx, unsigned sy, unsigned width, unsigned color, unsigned scale) {
@@ -303,6 +309,7 @@ static inline void display_draw_hline(display *d, unsigned sx, unsigned sy, unsi
 	for(yscale = 0, yd=sy*pitch; yscale < scale; yscale++,yd+=pitch)
 	for(x=sx;x<sx+width*scale;x++)
 		((unsigned*)pixels)[yd + x] = rgba_to_argb(color);
+	display_release_vram(d);
 }
 
 static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsigned width, unsigned height, unsigned color, unsigned scale) {
@@ -318,6 +325,7 @@ static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsig
 			for(x=0, xx=sx; x < width; x++)
 				for(xscale = 0; xscale < scale; xscale++,xx++)
 					((unsigned*)pixels)[yd + xx] = rgba_to_argb(color);
+	display_release_vram(d);
 }
 
 static inline void video_update_region(display *d, unsigned x, unsigned y, unsigned w, unsigned h)
@@ -339,6 +347,7 @@ static inline void display_clear(display *d) {
 	unsigned x, y;
 	for(y = 0; y < d->height; y++) for (x = 0; x < d->width; x++)
 		ptr[y*pitch + x] = 0;
+	display_release_vram(d);
 }
 
 static inline void display_toggle_fullscreen_i(display *d, int update) {
@@ -518,6 +527,10 @@ static inline void ezsdl_sleep(unsigned ms) {
 
 static inline void ezsdl_get_vram_and_pitch(void **pixels, unsigned *pitch) {
         display_get_vram_and_pitch(&ezsdl.disp, pixels, pitch);
+}
+
+static inline void ezsdl_release_vram(void) {
+	display_release_vram(&ezsdl.disp);
 }
 
 static inline unsigned ezsdl_get_width(void) {

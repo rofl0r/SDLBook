@@ -188,6 +188,7 @@ static void draw() {
 		for (x = 0; x < xmax; x++)
 			ptr[yline + x] = get_image_pixel(x, y+scroll_line);
 	}
+	ezsdl_release_vram();
 }
 
 static void draw_borders() {
@@ -206,6 +207,7 @@ static void draw_borders() {
 	for(y = 0, yline = 0; y < ymax; y++, yline+=pitch)
 		for(x = 0, ptr=vram+yline+xoff+page_dims.w; x < xoff; x++, ptr++)
 			*ptr = ARGB(0,0,0);
+	ezsdl_release_vram();
 }
 
 static void draw_bottom() {
@@ -227,6 +229,7 @@ static void draw_bottom() {
 		for (x = 0; x < xmax; x++)
 			ptr[yline + x] = ARGB(0,0,0);
 	}
+	ezsdl_release_vram();
 }
 
 
