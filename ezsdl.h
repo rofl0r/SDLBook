@@ -334,7 +334,7 @@ static inline void display_update_region(display *d, unsigned x, unsigned y, uns
 }
 
 static inline void display_refresh(display *d) {
-	SDL_UpdateRect(d->surface, 0, 0, d->width, d->height);
+	display_update_region(d, 0, 0, d->width, d->height);
 }
 
 static inline void display_clear(display *d) {
