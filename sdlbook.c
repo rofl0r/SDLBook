@@ -427,13 +427,14 @@ static void* prep_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *desired
 	return image;
 }
 
-static void* prep_pages() {
+static void* prep_pages(int *need_redraw) {
 	ddjvu_rect_t p1rect, p2rect;
 	static int last_page = -1, last_scale = -1;
 	if(curr_page == last_page && last_scale == config_data.scale)
 		return image_data;
 	last_page = curr_page;
 	last_scale = config_data.scale;
+	if(need_redraw) *need_redraw = 1;
 	char *p1data = prep_page(curr_page, &p1rect, 0);
 	char *p2data = prep_page(curr_page+1, &p2rect, 0);
 	if(!p2data) {
@@ -445,6 +446,7 @@ static void* prep_pages() {
 		/* sometimes the start page of a book has a different format */
 		free(p1data);
 		p1data = prep_page(curr_page, &p1rect, &p2rect);
+		if(need_redraw) *need_redraw = 2;
 	}
 	if(!(p1data && p2data)) return NULL;
 	assert(p1rect.w == p2rect.w && p1rect.h == p2rect.h);
@@ -488,48 +490,52 @@ static void swap_image(void *new) {
 }
 
 static int set_page(int no) {
+	int need_redraw;
 	if(no >= page_count) no = page_count-1;
 	if(no < 0) curr_page = 0;
 	else curr_page = no;
-	swap_image(prep_pages());
+	swap_image(prep_pages(&need_redraw));
 	update_title();
-	return 1;
+	return need_redraw;
 }
 
 static int change_page(int incr) {
+	int need_redraw;
 	if(curr_page + incr >= 0 && curr_page + incr < page_count)
 		curr_page += incr;
-	swap_image(prep_pages());
+	swap_image(prep_pages(&need_redraw));
 	update_title();
-	return 1;
+	return need_redraw;
 }
 
 static int change_scale(int incr) {
+	int need_redraw;
 	if (config_data.scale + incr <= 999 && config_data.scale + incr > 0)
 		config_data.scale += incr;
 	else return 0;
-	swap_image(prep_pages());
+	swap_image(prep_pages(&need_redraw));
 	update_title();
 	if(scroll_line_h + ezsdl_get_width() > page_dims.w) {
 		scroll_line_h = MAX((int)(page_dims.w - ezsdl_get_width()), 0);
 		return 2;
 	}
-	return incr < 0 ? 2 : 1;
+	return incr < 0 ? 2 : need_redraw;
 }
 
 static int change_scroll_v(int incr) {
+	int need_redraw = 1;
 	if(scroll_line_v + incr < 0) {
 		if(curr_page == 0) scroll_line_v = 0;
 		else {
-			change_page(-1);
+			need_redraw = change_page(-1);
 			scroll_line_v = MAX(scroll_line_v + incr + (int)page_dims.h, 0);
 		}
 	} else if(scroll_line_v + incr > page_dims.h) {
 		scroll_line_v = scroll_line_v + incr - (int)page_dims.h;
-		change_page(+1);
+		need_redraw = change_page(+1);
 	} else
 		scroll_line_v += incr;
-	return 1;
+	return need_redraw;
 }
 
 static int change_scroll_h(int incr) {
@@ -717,7 +723,7 @@ int main(int argc, char **argv) {
 #endif
 	);
 
-	image_data = prep_pages();
+	image_data = prep_pages(NULL);
 
 	init_gfx();
 
@@ -860,8 +866,8 @@ int main(int argc, char **argv) {
 								char buf[32];
 								buf[0] = 0;
 								input_loop("enter page no", buf, INPUT_LOOP_NUMERIC);
-								if(*buf) set_page(atoi(buf));
-								need_redraw = 1;
+								if(*buf) need_redraw = set_page(atoi(buf));
+								else need_redraw = 1;
 							}
 							break;
 						case SDLK_c:
