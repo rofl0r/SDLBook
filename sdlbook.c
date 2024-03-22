@@ -529,12 +529,13 @@ static int change_scroll_v(int incr) {
 }
 
 static int change_scroll_h(int incr) {
-	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
-	if(scroll_line_h + incr >= 0 && scroll_line_h + incr <= page_dims.w - ezsdl_get_width() && ezsdl_get_width() <= (int)page_dims.w)
-		scroll_line_h += incr;
-	else if (scroll_line_h + incr < 0 && incr == -96)
+	int sw = ezsdl_get_width(), pw = page_dims.w;
+	int old_scroll = scroll_line_h;
+	if (scroll_line_h + incr <= 0)
 		scroll_line_h = 0;
-	return 1;
+	else if(incr < 0 || (sw <= pw && scroll_line_h + incr <= pw - sw))
+		scroll_line_h += incr;
+	return old_scroll != scroll_line_h;
 }
 
 #define HELP_TEXT \
