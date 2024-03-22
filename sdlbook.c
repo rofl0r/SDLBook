@@ -518,7 +518,7 @@ static int change_scroll_v(int incr) {
 		if(curr_page == 0) scroll_line_v = 0;
 		else {
 			change_page(-1);
-			scroll_line_v = scroll_line_v + incr + (int)page_dims.h;
+			scroll_line_v = MAX(scroll_line_v + incr + (int)page_dims.h, 0);
 		}
 	} else if(scroll_line_v + incr > page_dims.h) {
 		scroll_line_v = scroll_line_v + incr - (int)page_dims.h;
