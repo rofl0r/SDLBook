@@ -239,7 +239,7 @@ static int game_tick(int need_redraw) {
 	if(need_redraw) {
 		long long tstamp = ezsdl_getutime64();
 		draw();
-		if(need_redraw == 2) draw_borders();
+		if(need_redraw & 2) draw_borders();
 		draw_bottom();
 		ezsdl_refresh();
 		ms_used = ezsdl_getutime64() - tstamp;
