@@ -794,22 +794,22 @@ int main(int argc, char **argv) {
 							need_redraw = change_scale(-10);
 							break;
 						case SDLK_PAGEDOWN:
-							need_redraw = change_scroll_v(+page_dims.h);
+							scroll_dist_v += page_dims.h;
 							break;
 						case SDLK_PAGEUP:
-							need_redraw = change_scroll_v(-page_dims.h);
+							scroll_dist_v -= page_dims.h;
 							break;
 						case SDLK_UP:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
-								need_redraw = change_scroll_v(-96);
+								scroll_dist_v += -96;
 							else
-								need_redraw = change_scroll_v(-32);
+								scroll_dist_v += -32;
 							break;
 						case SDLK_DOWN:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
-								need_redraw = change_scroll_v(+96);
+								scroll_dist_v += +96;
 							else
-								need_redraw = change_scroll_v(+32);
+								scroll_dist_v += +32;
 							break;
 						case SDLK_LEFT:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
