@@ -510,7 +510,11 @@ static int change_scale(int incr) {
 	else return 0;
 	swap_image(prep_pages());
 	update_title();
-	return incr < 0 ? 2 : 1;;
+	if(scroll_line_h + ezsdl_get_width() > page_dims.w) {
+		scroll_line_h = MAX((int)(page_dims.w - ezsdl_get_width()), 0);
+		return 2;
+	}
+	return incr < 0 ? 2 : 1;
 }
 
 static int change_scroll_v(int incr) {
