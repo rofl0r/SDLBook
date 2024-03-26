@@ -599,11 +599,14 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 		case EV_QUIT:
 		case EV_KEYUP:
 			switch(event.which) {
-			case SDLK_BACKSPACE:
+			case SDLK_BACKSPACE: case SDLK_LEFT:
 				if(p > result) p--;
+				p_n = digitEvent = *(p - 1);
 				*p = 0;
 				goto drawit;
 			case SDLK_RETURN:
+				goto out;
+			case SDLK_RIGHT:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
 				if (p - result < 20) {
