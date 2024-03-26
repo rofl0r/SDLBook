@@ -692,6 +692,8 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 					display_init(&ezsdl.disp, sdl_event.window.data1, sdl_event.window.data2, ezsdl.disp.flags);
 					e = EV_RESIZE;
 					t = CB_RESIZE;
+				} else if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED) {
+					e = EV_NEEDREDRAW;
 				}
 				break;
 #endif
