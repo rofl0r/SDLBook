@@ -41,6 +41,8 @@ install: $(PROG)
 src: $(SRCS)
 	$(CC) $(CPPFLAGS_N) $(CPPFLAGS) $(CFLAGS_N) $(CFLAGS) -o $(PROG) $^ $(LDFLAGS_N) $(LDFLAGS) $(LIBS)
 
+sdlbook.o: ezsdl.h
+
 %.o: %.c
 	$(CC) $(CPPFLAGS_N) $(CPPFLAGS) $(CFLAGS_N) $(CFLAGS) -c -o $@ $<
 
