@@ -613,7 +613,7 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 					goto drawit;
 				} else 
 					break;
-			case SDLK_ESCAPE:
+			case SDLK_ESCAPE: case SDLK_g:
 		out:;
 				*p = 0;
 				p_n = 0;
