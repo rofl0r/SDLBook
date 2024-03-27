@@ -599,44 +599,45 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 		case EV_KEYUP:
 			switch(event.which) {
 			case SDLK_BACKSPACE: case SDLK_LEFT:
+				if(flags == INPUT_LOOP_RET)
+					goto out;
 				if(p > result) p--;
 				p_n = *(p - 1);
 				*p = 0;
 				goto drawit;
-			case SDLK_RETURN:
-				goto out;
 			case SDLK_RIGHT:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
-				if (p - result < 20) {
+				if(p - result < 20) {
 					p_n = 48;
 					*(p++) = p_n;
 					*p = 0;
 					goto drawit;
-				} else 
+				} else
 					break;
-			case SDLK_ESCAPE: case SDLK_g:
+			case SDLK_RETURN: case SDLK_ESCAPE: case SDLK_g:
 		out:;
 				*p = 0;
-				p_n = 0;
 				ezsdl_clear();
 				return;
 			case SDLK_UP:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
 				p_n = *(p - 1);
+				if(p_n < 48 || p_n > 57) p_n = 48;
 				if(p >= result && p_n < 57 && (p - result < 20)) {
 					if (p > result) p--;
 					p_n++;
 					*(p++) = p_n;
 					*p = 0;
 					goto drawit;
-				} else 
+				} else
 					break;
 			case SDLK_DOWN:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
 				p_n = *(p - 1);
+				if(p_n < 48 || p_n > 57) p_n = 48;
 				if(p >= result && p_n >= 48  && (p - result < 20)) {
 					if (p_n == 48 ) p_n++;
 					if (p > result) p--;
@@ -644,13 +645,13 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 					*(p++) = p_n;
 					*p = 0;
 					goto drawit;
-				} else 
+				} else
 					break;
 			default:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
 				else if(flags == INPUT_LOOP_NUMERIC && (p - result < 20)) {
-					if (isdigit(event.which)) *(p++) = event.which;
+					if(isdigit(event.which)) *(p++) = event.which;
 					else *(p++) = 48;
 					*p = 0;
 				}
