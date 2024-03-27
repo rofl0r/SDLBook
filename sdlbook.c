@@ -915,7 +915,7 @@ int main(int argc, char **argv) {
 							{
 								char buf[32];
 								buf[0] = 0;
-								input_loop("enter page no", buf, INPUT_LOOP_NUMERIC);
+								input_loop("Enter page No.: (use number/arrow keys)", buf, INPUT_LOOP_NUMERIC);
 								if(*buf) need_redraw = set_page(atoi(buf));
 								else need_redraw = 1;
 							}
