@@ -652,7 +652,7 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 					goto out;
 				else if(flags == INPUT_LOOP_NUMERIC && (p - result < 20)) {
 					if(isdigit(event.which)) *(p++) = event.which;
-					else *(p++) = 48;
+					else if (event.which == 275) *(p++) = 48;
 					*p = 0;
 				}
 			drawit:
