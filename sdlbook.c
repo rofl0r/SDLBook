@@ -590,7 +590,6 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 	char* p = result;
 	*p = 0;
 	int p_n = 48;
-	int digitEvent = 48;
 	struct event event;
 	while(1) {
 		enum eventtypes e;
@@ -601,7 +600,7 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 			switch(event.which) {
 			case SDLK_BACKSPACE: case SDLK_LEFT:
 				if(p > result) p--;
-				p_n = digitEvent = *(p - 1);
+				p_n = *(p - 1);
 				*p = 0;
 				goto drawit;
 			case SDLK_RETURN:
@@ -610,7 +609,7 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 				if(flags == INPUT_LOOP_RET)
 					goto out;
 				if (p - result < 20) {
-					p_n = digitEvent = 48;
+					p_n = 48;
 					*(p++) = p_n;
 					*p = 0;
 					goto drawit;
@@ -625,11 +624,8 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 			case SDLK_UP:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
+				p_n = *(p - 1);
 				if(p >= result && p_n < 57 && (p - result < 20)) {
-					if (p_n == 48 && digitEvent != 48) {
-						p_n = digitEvent;
-						digitEvent = 48;
-					}
 					if (p > result) p--;
 					p_n++;
 					*(p++) = p_n;
@@ -640,11 +636,9 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 			case SDLK_DOWN:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
+				p_n = *(p - 1);
 				if(p >= result && p_n >= 48  && (p - result < 20)) {
-					if (p_n == 48 && digitEvent != 48) {
-						p_n = digitEvent;
-						digitEvent = 48;
-					} else if (p_n == 48 ) p_n++;
+					if (p_n == 48 ) p_n++;
 					if (p > result) p--;
 					p_n--;
 					*(p++) = p_n;
@@ -656,12 +650,9 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 				if(flags == INPUT_LOOP_RET)
 					goto out;
 				else if(flags == INPUT_LOOP_NUMERIC && (p - result < 20)) {
-					if (isdigit(event.which)) {
-						*(p++) = event.which;
-						digitEvent = event.which;
-					} else *(p++) = 48;
+					if (isdigit(event.which)) *(p++) = event.which;
+					else *(p++) = 48;
 					*p = 0;
-					p_n = 48;
 				}
 			drawit:
 				ezsdl_fill_rect(8, desired_height - 10*2, ezsdl_get_width() -8, MIN(desired_height, ezsdl_get_height()), RGB(0xff,0x00,0x00), 1);
