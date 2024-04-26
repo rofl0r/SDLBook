@@ -144,6 +144,14 @@ static void init_gfx() {
 	if(!spritesheet_init(&ss_font, bmp_font, FONT_W, FONT_H)) dprintf(2, "oops\n");
 }
 
+static int get_page_bottom() {
+#ifndef OFF_SMOOTH
+	return page_dims.h;
+#else
+	return page_dims.h/2;
+#endif
+} 
+
 static int get_font_width(char letter) {
 	return ss_font.sprite_w;
 }
@@ -177,7 +185,8 @@ static void draw() {
 	unsigned *ptr;
 	unsigned pitch;
 	int xoff = MAX((int)(ezsdl_get_width() - page_dims.w)/2, 0);
-	int xmax = page_dims.w, ymax = page_dims.h*2;
+	int xmax = page_dims.w;
+	int ymax = get_page_bottom()*2;
 	if(scroll_line_v > ymax) return;
 	ymax = MIN(ezsdl_get_height(), ymax-scroll_line_v),
 	xmax = MIN(ezsdl_get_width(), xmax-scroll_line_h);
@@ -214,7 +223,7 @@ static void draw_borders() {
 static void draw_bottom() {
 	int x, y, yline;
 	int xmax, ymax, ymin;
-	ymin = page_dims.h*2-scroll_line_v;
+	ymin = get_page_bottom()*2-scroll_line_v;
 	if(ymin < 0) return;
 	void *pixels;
 	unsigned *ptr;
@@ -428,7 +437,10 @@ static void* prep_page(int pageno, ddjvu_rect_t *res_rect, ddjvu_rect_t *desired
 }
 
 static void* prep_pages(int *need_redraw) {
-	ddjvu_rect_t p1rect, p2rect;
+	ddjvu_rect_t p1rect;
+#ifndef OFF_SMOOTH
+	ddjvu_rect_t p2rect;
+#endif
 	static int last_page = -1, last_scale = -1;
 	if(curr_page == last_page && last_scale == config_data.scale)
 		return image_data;
@@ -436,6 +448,7 @@ static void* prep_pages(int *need_redraw) {
 	last_scale = config_data.scale;
 	if(need_redraw) *need_redraw = 1;
 	char *p1data = prep_page(curr_page, &p1rect, 0);
+#ifndef OFF_SMOOTH
 	char *p2data = prep_page(curr_page+1, &p2rect, 0);
 	if(!p2data) {
 		/* probably last page hit */
@@ -450,15 +463,22 @@ static void* prep_pages(int *need_redraw) {
 	}
 	if(!(p1data && p2data)) return NULL;
 	assert(p1rect.w == p2rect.w && p1rect.h == p2rect.h);
+	int stored_images = 2;
+#else	
+	if(!(p1data)) return NULL;
+	int stored_images = 1;
+#endif
 
 	size_t one_pic = p1rect.w*p1rect.h;
-	unsigned* imgbuf = malloc(4 * one_pic * 2);
+	unsigned* imgbuf = malloc(4 * one_pic * stored_images);
 
 	convert_rgb24_to_rgba(p1data, p1rect.w, p1rect.h, imgbuf);
-	convert_rgb24_to_rgba(p2data, p2rect.w, p2rect.h, imgbuf+one_pic);
 	page_dims = p1rect;
 	free(p1data);
+#ifndef OFF_SMOOTH
+	convert_rgb24_to_rgba(p2data, p2rect.w, p2rect.h, imgbuf+one_pic);
 	free(p2data);
+#endif
 	return imgbuf;
 }
 
@@ -524,22 +544,50 @@ static int change_scale(int incr) {
 
 static int change_scroll_v(int incr) {
 	int need_redraw = 1;
+#ifndef OFF_SMOOTH
+	int page_bottom_prv = scroll_line_v + incr + get_page_bottom();
+#else
+	int page_bottom_prv = scroll_line_v + get_page_bottom()*2 - ezsdl_get_height();
+	
+	if(ezsdl_get_height() >= page_dims.h || abs(incr) == get_page_bottom()) {
+		scroll_line_v = 0;
+		change_page(incr > 0 ? +1 : -1);
+		return need_redraw;
+	}
+#endif
 	if(scroll_line_v + incr < 0) {
 		if(curr_page == 0) scroll_line_v = 0;
 		else {
 			need_redraw = change_page(-1);
-			scroll_line_v = MAX(scroll_line_v + incr + (int)page_dims.h, 0);
+			scroll_line_v = MAX(page_bottom_prv, 0);
 		}
 	} else if(curr_page >= page_count-1) {
 	adjust_last_page:
 		scroll_line_v = MIN(scroll_line_v + incr, abs((int)page_dims.h - ezsdl_get_height()));
-	} else if(scroll_line_v + incr > page_dims.h) {
-		scroll_line_v = scroll_line_v + incr - (int)page_dims.h;
+#ifndef OFF_SMOOTHSWAP
+	} else if(scroll_line_v + incr > get_page_bottom()) {
+		scroll_line_v = scroll_line_v + incr - get_page_bottom();
 		need_redraw = change_page(+1);
 		if(curr_page >= page_count-1) {
 			incr = 0;
 			goto adjust_last_page;
 		}
+#else
+	} else if(scroll_line_v + incr > page_bottom && ezsdl_get_height() > get_page_bottom()) {
+		scroll_line_v = scroll_line_v + incr - get_page_bottom();
+		need_redraw = change_page(+1);
+		if(curr_page >= page_count-1) {
+			incr = 0;
+			goto adjust_last_page;
+		}
+	} else if (scroll_line_v + incr > page_dims.h - ezsdl_get_height() && incr > 0) {
+		scroll_line_v = scroll_line_v + incr + ezsdl_get_height() - (int)page_dims.h;	
+		need_redraw = change_page(+1);
+		if(curr_page >= page_count-1) {
+			incr = 0;
+			goto adjust_last_page;
+		}
+#endif
 	} else
 		scroll_line_v += incr;
 	return need_redraw;
@@ -801,10 +849,10 @@ int main(int argc, char **argv) {
 							need_redraw = change_scale(-10);
 							break;
 						case SDLK_PAGEDOWN:
-							scroll_dist_v += page_dims.h;
+							scroll_dist_v += get_page_bottom();
 							break;
 						case SDLK_PAGEUP:
-							scroll_dist_v -= page_dims.h;
+							scroll_dist_v -= get_page_bottom();
 							break;
 						case SDLK_UP:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
