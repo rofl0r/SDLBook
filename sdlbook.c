@@ -777,7 +777,7 @@ int main(int argc, char **argv) {
 					if(left_ctrl_pressed || right_ctrl_pressed)
 						scale_dist += event.yval*-10;
 					else
-						need_redraw = change_scroll_v(event.yval*64);
+						scroll_dist_v += event.yval*64;
 					break;
 				case EV_NEEDREDRAW: case EV_RESIZE:
 					need_redraw = 1;
