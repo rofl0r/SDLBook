@@ -547,7 +547,7 @@ static int change_scroll_v(int incr) {
 #ifndef OFF_SMOOTH
 	int page_bottom_prv = scroll_line_v + incr + get_page_bottom();
 #else
-	int page_bottom_prv = scroll_line_v + get_page_bottom()*2 - ezsdl_get_height();
+	int page_bottom_prv = get_page_bottom();
 	
 	if(ezsdl_get_height() >= page_dims.h || abs(incr) == get_page_bottom()) {
 		scroll_line_v = 0;
@@ -564,7 +564,6 @@ static int change_scroll_v(int incr) {
 	} else if(curr_page >= page_count-1) {
 	adjust_last_page:
 		scroll_line_v = MIN(scroll_line_v + incr, abs((int)page_dims.h - ezsdl_get_height()));
-#ifndef OFF_SMOOTHSWAP
 	} else if(scroll_line_v + incr > get_page_bottom()) {
 		scroll_line_v = scroll_line_v + incr - get_page_bottom();
 		need_redraw = change_page(+1);
@@ -572,22 +571,6 @@ static int change_scroll_v(int incr) {
 			incr = 0;
 			goto adjust_last_page;
 		}
-#else
-	} else if(scroll_line_v + incr > page_bottom && ezsdl_get_height() > get_page_bottom()) {
-		scroll_line_v = scroll_line_v + incr - get_page_bottom();
-		need_redraw = change_page(+1);
-		if(curr_page >= page_count-1) {
-			incr = 0;
-			goto adjust_last_page;
-		}
-	} else if (scroll_line_v + incr > page_dims.h - ezsdl_get_height() && incr > 0) {
-		scroll_line_v = scroll_line_v + incr + ezsdl_get_height() - (int)page_dims.h;	
-		need_redraw = change_page(+1);
-		if(curr_page >= page_count-1) {
-			incr = 0;
-			goto adjust_last_page;
-		}
-#endif
 	} else
 		scroll_line_v += incr;
 	return need_redraw;
