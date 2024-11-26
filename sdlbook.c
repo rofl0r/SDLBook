@@ -501,7 +501,11 @@ static int set_page(int no) {
 
 static int change_page(int incr) {
 	int need_redraw;
-	if(curr_page + incr >= 0 && curr_page + incr < page_count)
+	if(curr_page + incr < 0)
+		curr_page = 0;
+	else if(curr_page + incr >= page_count)
+		curr_page = page_count -1;
+	else
 		curr_page += incr;
 	swap_image(prep_pages(&need_redraw));
 	update_title();
