@@ -666,7 +666,8 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 			case SDL_QUIT:
 				return EV_QUIT;
 			case SDL_KEYDOWN:
-				if((sdl_event.key.keysym.mod & KMOD_LALT) ||
+				if (sdl_event.key.keysym.sym == SDLK_RETURN &&
+				   (sdl_event.key.keysym.mod & KMOD_LALT) ||
 				   (sdl_event.key.keysym.mod & KMOD_RALT)) {
 					ezsdl_toggle_fullscreen();
 					SDL_Delay(1);
