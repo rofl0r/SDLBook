@@ -16,6 +16,7 @@
 #include <mupdf/fitz.h>
 #include "ezsdl.h"
 #include "topaz.h"
+#include "inputmap.h"
 
 #pragma RcB2 LINK "-ldjvulibre" "-lSSL" "-lmupdf"
 
@@ -556,13 +557,13 @@ static int change_scroll_h(int incr) {
 
 #define HELP_TEXT \
 	"HELP SCREEN - HIT ANY KEY TO EXIT\n" \
-	"UP, DOWN ARROW - SCROLL 32 PIX\n" \
-	"CTRL + UP, DOWN ARROW - SCROLL 96 PIX\n" \
-	"PAGE_UP/DOWN - SCROLL ONE PAGE\n" \
-	"KEYPAD +/- OR CTRL-WHEEL - ZOOM\n" \
-	"G - ENTER PAGE NUMBER\n" \
-	"Q/ESC - QUIT\n" \
-	"F1 - SHOW HELP SCREEN\n"
+	STR_UP ", " STR_DOWN " - SCROLL 32 PIX\n" \
+	STR_LMOD "/" STR_RMOD " + " STR_UP "/" STR_DOWN " - SCROLL 96 PIX\n" \
+	STR_PGUP "/" STR_PGDOWN " - SCROLL ONE PAGE\n" \
+	STR_ZOOMIN "/" STR_ZOOMOUT " OR " STR_LMOD "/" STR_RMOD " + WHEEL - ZOOM\n" \
+	STR_PAGEN " - ENTER PAGE NUMBER\n" \
+	STR_QUIT "/" STR_EXIT " - QUIT\n" \
+	STR_HELP " - SHOW HELP SCREEN\n"
 
 static int get_return_count(const char* text) {
 	int count = 0;
@@ -603,11 +604,11 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 		case EV_QUIT:
 		case EV_KEYUP:
 			switch(event.which) {
-			case SDLK_BACKSPACE:
+			case INPUT_CANCEL:
 				if(p > result) p--;
 				*p = 0;
 				goto drawit;
-			case SDLK_RETURN: case SDLK_ESCAPE:
+			case INPUT_CONFIRM: case INPUT_EXIT:
 		out:;
 				*p = 0;
 				ezsdl_clear();
@@ -785,51 +786,51 @@ int main(int argc, char **argv) {
 					goto dun_goofed;
 				case EV_KEYDOWN:
 					switch(event.which) {
-						case SDLK_LCTRL:
+						case INPUT_LMOD:
 							left_ctrl_pressed = 1;
 							break;
-						case SDLK_RCTRL:
+						case INPUT_RMOD:
 							right_ctrl_pressed = 1;
 							break;
-						case SDLK_q:
+						case INPUT_QUIT:
 							goto dun_goofed;
-						case SDLK_KP_PLUS:
+						case INPUT_ZOOMIN:
 							need_redraw = change_scale(+10);
 							break;
-						case SDLK_KP_MINUS:
+						case INPUT_ZOOMOUT:
 							need_redraw = change_scale(-10);
 							break;
-						case SDLK_PAGEDOWN:
+						case INPUT_PGDOWN:
 							scroll_dist_v += page_dims.h;
 							break;
-						case SDLK_PAGEUP:
+						case INPUT_PGUP:
 							scroll_dist_v -= page_dims.h;
 							break;
-						case SDLK_UP:
+						case INPUT_UP:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
 								scroll_dist_v += -96;
 							else
 								scroll_dist_v += -32;
 							break;
-						case SDLK_DOWN:
+						case INPUT_DOWN:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
 								scroll_dist_v += +96;
 							else
 								scroll_dist_v += +32;
 							break;
-						case SDLK_LEFT:
+						case INPUT_LEFT:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
 								need_redraw = change_scroll_h(-96);
 							else
 								need_redraw = change_scroll_h(-32);
 							break;
-						case SDLK_RIGHT:
+						case INPUT_RIGHT:
 							if((event.mod & KMOD_LCTRL) || (event.mod & KMOD_RCTRL))
 								need_redraw = change_scroll_h(+96);
 							else
 								need_redraw = change_scroll_h(+32);
 							break;
-						case SDLK_RETURN:
+						case INPUT_CONFIRM:
 							if((event.mod & KMOD_LALT) ||
 							   (event.mod & KMOD_RALT)) {
 								ezsdl_toggle_fullscreen();
@@ -844,21 +845,21 @@ int main(int argc, char **argv) {
 					break;
 				case EV_KEYUP:
 					switch(event.which) {
-						case SDLK_UP:
-						case SDLK_DOWN:
-						case SDLK_LEFT:
-						case SDLK_RIGHT:
-						case SDLK_PAGEUP:
-						case SDLK_PAGEDOWN:
+						case INPUT_UP:
+						case INPUT_DOWN:
+						case INPUT_LEFT:
+						case INPUT_RIGHT:
+						case INPUT_PGUP:
+						case INPUT_PGDOWN:
 							need_redraw = 1;
 							break;
-						case SDLK_LCTRL:
+						case INPUT_LMOD:
 							left_ctrl_pressed = 0;
 							break;
-						case SDLK_RCTRL:
+						case INPUT_RMOD:
 							right_ctrl_pressed = 0;
 							break;
-						case SDLK_F1:
+						case INPUT_HELP:
 							{
 								char buf[32];
 								buf[0] = 0;
@@ -867,7 +868,7 @@ int main(int argc, char **argv) {
 							}
 							break;
 
-						case SDLK_g:
+						case INPUT_PAGEN:
 							{
 								char buf[32];
 								buf[0] = 0;
@@ -876,12 +877,12 @@ int main(int argc, char **argv) {
 								else need_redraw = 1;
 							}
 							break;
-						case SDLK_c:
+						case INPUT_CLEAR:
 							ezsdl_clear();
 							ezsdl_refresh();
 							need_redraw = 1;
 							break;
-						case SDLK_ESCAPE:
+						case INPUT_EXIT:
 							goto dun_goofed;
 						default:
 							break;
