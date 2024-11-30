@@ -595,6 +595,7 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 	ezsdl_update_region(0, 0, ezsdl_get_width(), MIN(desired_height, ezsdl_get_height()));
 	char* p = result;
 	*p = 0;
+	int p_n = 48;
 	struct event event;
 	while(1) {
 		enum eventtypes e;
@@ -603,20 +604,61 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 		case EV_QUIT:
 		case EV_KEYUP:
 			switch(event.which) {
-			case SDLK_BACKSPACE:
+			case SDLK_BACKSPACE: case SDLK_LEFT:
+				if(flags == INPUT_LOOP_RET)
+					goto out;
 				if(p > result) p--;
+				p_n = *(p - 1);
 				*p = 0;
 				goto drawit;
-			case SDLK_RETURN: case SDLK_ESCAPE:
+			case SDLK_RIGHT:
+				if(flags == INPUT_LOOP_RET)
+					goto out;
+				if(p - result < 20) {
+					p_n = 48;
+					*(p++) = p_n;
+					*p = 0;
+					goto drawit;
+				} else
+					break;
+			case SDLK_RETURN: case SDLK_ESCAPE: case SDLK_g:
 		out:;
 				*p = 0;
 				ezsdl_clear();
 				return;
+			case SDLK_UP:
+				if(flags == INPUT_LOOP_RET)
+					goto out;
+				p_n = *(p - 1);
+				if(p_n < 48 || p_n > 57) p_n = 48;
+				if(p >= result && p_n < 57 && (p - result < 20)) {
+					if (p > result) p--;
+					p_n++;
+					*(p++) = p_n;
+					*p = 0;
+					goto drawit;
+				} else
+					break;
+			case SDLK_DOWN:
+				if(flags == INPUT_LOOP_RET)
+					goto out;
+				p_n = *(p - 1);
+				if(p_n < 48 || p_n > 57) p_n = 48;
+				if(p >= result && p_n >= 48  && (p - result < 20)) {
+					if (p_n == 48 ) p_n++;
+					if (p > result) p--;
+					p_n--;
+					*(p++) = p_n;
+					*p = 0;
+					goto drawit;
+				} else
+					break;
 			default:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
-				else if(flags == INPUT_LOOP_NUMERIC && isdigit(event.which) && (p - result < 20)) {
-					*(p++) = event.which;
+				else if(flags == INPUT_LOOP_NUMERIC && (p - result < 20)) {
+					if(isdigit(event.which)) *(p++) = event.which;
+					else if (event.which == 275) *(p++) = 48;
 					*p = 0;
 				}
 			drawit:
@@ -871,7 +913,7 @@ int main(int argc, char **argv) {
 							{
 								char buf[32];
 								buf[0] = 0;
-								input_loop("enter page no", buf, INPUT_LOOP_NUMERIC);
+								input_loop("Enter page No.: (use number/arrow keys)", buf, INPUT_LOOP_NUMERIC);
 								if(*buf) need_redraw = set_page(atoi(buf));
 								else need_redraw = 1;
 							}
