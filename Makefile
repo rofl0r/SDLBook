@@ -4,6 +4,9 @@ bindir = $(prefix)/bin
 
 PROG = sdlbook
 SRCS = sdlbook.c
+OBJS = $(SRCS:.c=.o)
+
+-include config.mak
 
 ifeq ($(SDL2),)
 SDL_LIBS = -lSDL
@@ -19,11 +22,7 @@ CFLAGS_N =
 CPPFLAGS_N = $(CPPF_SDL)
 LDFLAGS_N = 
 
-OBJS = $(SRCS:.c=.o)
-
 MAKEFILE := $(firstword $(MAKEFILE_LIST))
-
--include config.mak
 
 all: $(PROG)
 
