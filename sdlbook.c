@@ -721,13 +721,14 @@ int main(int argc, char **argv) {
 
 	read_write_config(1);
 
-	ezsdl_init(config_data.w, config_data.h,
+	ezsdl_init(config_data.w, config_data.h, 100,
 #ifndef USE_SDL2
 		SDL_HWPALETTE | SDL_RESIZABLE
 #else
 		0
 #endif
 	);
+	ezsdl_set_resize_method(RM_WINDOW);
 
 	image_data = prep_pages(NULL);
 

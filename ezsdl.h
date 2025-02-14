@@ -37,6 +37,16 @@
 #define ARGB_BLUE(X) (X << 0)
 #define ARGB(R,G,B) (ARGB_RED(R) | ARGB_GREEN(G) | ARGB_BLUE(B))
 
+#ifndef MAX
+#define MAX(A, B) (((A) > (B)) ? (A) : (B))
+#define MIN(A, B) (((A) < (B)) ? (A) : (B))
+#endif
+
+#define SCALEUP(V, S) (V*S/100)
+#define SCALEDOWN(V, S) (V*100/S)
+#define SCALECALC(OLDV, NEWV) (NEWV*100/OLDV)
+#define NEWSCALE(OLDW, NEWW, OLDH, NEWH) MAX(SCALECALC(OLDW, NEWW), SCALECALC(OLDH, NEWH))
+
 static inline unsigned rgba_to_argb(unsigned col) { return col >> 8; }
 static inline unsigned argb_to_rgba(unsigned col) { return col << 8; }
 
@@ -177,6 +187,11 @@ static inline void bmp1_to_bmp4(bmp1* in, bmp4 *out, unsigned palette[256]) {
 	#undef ALPHA
 }
 
+enum resize_method {
+	RM_WINDOW = 0, // hwscale stays fixed, w&h changes
+	RM_SCALE = 1,  // hwscale changes, logical w&h stays fixed
+};
+
 typedef struct display {
 	unsigned width, height;
 #ifdef USE_SDL2
@@ -188,21 +203,37 @@ typedef struct display {
 #endif
 	int fs;
 	int flags;
+	unsigned hwscale; // hardware scaling in percent
+	enum resize_method rm;
 } display;
 
+static inline void display_set_resize_method(display *d, enum resize_method rm) {
+	d->rm = rm;
+}
+
 /* display pointed to is assumed to be zero-filled */
-static inline void display_init(display *d, unsigned width, unsigned height, int flags) {
+/* hwscale uses SDL2 hardware scaling to render. it's provided as a percentage.
+   so 100 means scale 1. the width and height provided need to be the
+   UNSCALED dimensions. so if you code for example an emulator for a machine
+   with 320x240 pixels, and want 2x scale, set width=320, height=240, hwscale=200
+   and the actual window will be 640x480. however, this works transparently,
+   so you can do all calculations within the 1x scale boundaries, including
+   mouse movements. when you call display_get_width(), it will return 320. */
+static inline void display_init(display *d, unsigned width, unsigned height, unsigned hwscale, int flags) {
 	static int init_done;
+	int sw = SCALEUP(width, hwscale);
+	int sh = SCALEUP(height, hwscale);
 #ifndef USE_SDL2
 	SDL_Surface *old = d->surface;
 	if(!flags) flags = SDL_HWPALETTE;
+	assert("sorry, SDL1 support for hwscale other than 100 not implemented!" && hwscale == 100);
 #endif
 	if(!init_done) SDL_Init(SDL_INIT_VIDEO);
 	init_done = 1;
 #ifdef USE_SDL2
 	if(!d->win) {
-		d->win = SDL_CreateWindow("ezsdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
-		SDL_DisplayMode dm = {.format = EZSDL_PIXEL_FMT, .w = width, .h = height };
+		d->win = SDL_CreateWindow("ezsdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, sw, sh, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
+		SDL_DisplayMode dm = {.format = EZSDL_PIXEL_FMT, .w = sw, .h = sh };
 		SDL_SetWindowDisplayMode(d->win, &dm);
 	}
 	if(d->tex)
@@ -219,6 +250,7 @@ static inline void display_init(display *d, unsigned width, unsigned height, int
 	d->height = height;
 	d->fs = 0;
 	d->flags = flags;
+	d->hwscale = hwscale;
 }
 
 static inline void display_toggle_fullscreen_i(display *d, int update);
@@ -371,8 +403,13 @@ static inline void display_fill_rect(display *d, unsigned sx, unsigned sy, unsig
 static inline void display_update_region(display *d, unsigned x, unsigned y, unsigned w, unsigned h)
 {
 #ifdef USE_SDL2
-	SDL_Rect area = {.x = x, .y= y, .w = w, .h = h};
-	SDL_RenderCopy(d->ren, d->tex, &area, &area);
+	SDL_Rect sarea = {.x = x, .y = y, .w = w, .h = h};
+	SDL_Rect darea = {
+		.x = SCALEUP(x, d->hwscale),
+		.y = SCALEUP(y, d->hwscale),
+		.w = SCALEUP(w, d->hwscale),
+		.h = SCALEUP(h, d->hwscale)};
+	SDL_RenderCopy(d->ren, d->tex, &sarea, &darea);
 	SDL_RenderPresent(d->ren);
 #else
 	SDL_UpdateRect(d->surface, x, y, w, h);
@@ -398,7 +435,7 @@ static inline void display_clear(display *d) {
 
 static inline void display_toggle_fullscreen_i(display *d, int update) {
 #ifdef USE_SDL2
-	SDL_SetWindowFullscreen(d->win, d->fs ? 0 : SDL_WINDOW_FULLSCREEN);
+	SDL_SetWindowFullscreen(d->win, d->fs ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
 	d->fs = !d->fs;
 #else
 	d->fs = !d->fs;
@@ -436,6 +473,7 @@ enum eventtypes {
 	EV_QUIT,
 	EV_RESIZE,
 	EV_NEEDREDRAW,
+	EV_HANDLED,
 	EV_MAX
 };
 
@@ -529,12 +567,16 @@ static struct ezsdl {
 	struct inp inp;
 } ezsdl;
 
-static inline void ezsdl_init(unsigned width, unsigned height, int flags) {
-	display_init(&ezsdl.disp, width, height, flags);
+static inline void ezsdl_init(unsigned width, unsigned height, unsigned hwscale, int flags) {
+	display_init(&ezsdl.disp, width, height, hwscale, flags);
 }
 
 static inline void ezsdl_shutdown(void) {
 	display_shutdown(&ezsdl.disp);
+}
+
+static inline void ezsdl_set_resize_method(enum resize_method rm) {
+	display_set_resize_method(&ezsdl.disp, rm);
 }
 
 static inline void ezsdl_set_title(const char* text) {
@@ -628,6 +670,10 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 		enum cbtypes t = CB_MAX;
 		switch (sdl_event.type) {
 			case SDL_MOUSEMOTION:
+				if(sdl_event.motion.x < 0) sdl_event.motion.x = 0;
+				if(sdl_event.motion.y < 0) sdl_event.motion.y = 0;
+				sdl_event.motion.x = SCALEDOWN(sdl_event.motion.x, ezsdl.disp.hwscale);
+				sdl_event.motion.y = SCALEDOWN(sdl_event.motion.y, ezsdl.disp.hwscale);
 				e = EV_MOUSEMOVE;
 				t = CB_MOUSEMOVE;
 				break;
@@ -646,6 +692,8 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 				} else
 #endif
 				{
+					sdl_event.button.x = SCALEDOWN(sdl_event.button.x, ezsdl.disp.hwscale);
+					sdl_event.button.y = SCALEDOWN(sdl_event.button.y, ezsdl.disp.hwscale);
 					e = EV_MOUSEDOWN;
 					t = CB_MOUSEDOWN;
 				}
@@ -659,6 +707,8 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 				} else
 #endif
 				{
+					sdl_event.button.x = SCALEDOWN(sdl_event.button.x, ezsdl.disp.hwscale);
+					sdl_event.button.y = SCALEDOWN(sdl_event.button.y, ezsdl.disp.hwscale);
 					e = EV_MOUSEUP;
 					t = CB_MOUSEUP;
 				}
@@ -683,14 +733,25 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 				break;
 #ifndef USE_SDL2
 			case SDL_VIDEORESIZE:
-				display_init(&ezsdl.disp, sdl_event.resize.w, sdl_event.resize.h, ezsdl.disp.flags);
+				// TODO : SDL1 hw scaling
+				display_init(&ezsdl.disp, sdl_event.resize.w, sdl_event.resize.w, 100, ezsdl.disp.flags);
 				e = EV_RESIZE;
 				t = CB_RESIZE;
 				break;
 #else
 			case SDL_WINDOWEVENT:
 				if(sdl_event.window.event == SDL_WINDOWEVENT_RESIZED) {
-					display_init(&ezsdl.disp, sdl_event.window.data1, sdl_event.window.data2, ezsdl.disp.flags);
+					int s;
+					if(ezsdl.disp.rm == RM_WINDOW) {
+						s = ezsdl.disp.hwscale;
+						sdl_event.window.data1 = SCALEDOWN(sdl_event.window.data1, s);
+						sdl_event.window.data2 = SCALEDOWN(sdl_event.window.data2, s);
+					} else {
+						s = NEWSCALE(ezsdl.disp.width, sdl_event.window.data1, ezsdl.disp.height, sdl_event.window.data2);
+						sdl_event.window.data1 = ezsdl.disp.width;
+						sdl_event.window.data2 = ezsdl.disp.height;
+					}
+					display_init(&ezsdl.disp, sdl_event.window.data1, sdl_event.window.data2, s, ezsdl.disp.flags);
 					e = EV_RESIZE;
 					t = CB_RESIZE;
 				} else if (sdl_event.window.event == SDL_WINDOWEVENT_EXPOSED) {
@@ -701,14 +762,17 @@ static inline enum eventtypes ezsdl_getevent(struct event *myevent) {
 		}
 		if(t != CB_MAX) {
 			if(event_processors[t]) event_processors[t](in, &sdl_event, myevent);
-			if(in->callbacks[t].cb && in->callbacks[t].cb(in->callbacks[t].data, myevent))
-				e = EV_NEEDREDRAW;
+			if(in->callbacks[t].cb)
+				if(in->callbacks[t].cb(in->callbacks[t].data, myevent))
+					e = EV_NEEDREDRAW;
+				else
+					e = EV_HANDLED;
 		}
 	}
 	return e;
 }
 
-static inline void ezsdl_start(void(*game_tick)(int)) {
+static inline void ezsdl_start(void) {
 	struct event myevent;
 	while(1) {
 		unsigned need_redraw = 0;
@@ -722,7 +786,11 @@ static inline void ezsdl_start(void(*game_tick)(int)) {
 		} while (++ms_passed < 20);
 
 		long long tm = ezsdl_getutime64();
-		game_tick(need_redraw);
+		myevent.which = need_redraw;
+		struct inp* in = &ezsdl.inp;
+		if(in->callbacks[CB_GAMETICK].cb)
+			(void) in->callbacks[CB_GAMETICK].cb(in->callbacks[CB_GAMETICK].data, &myevent);
+
 		ms_passed = (ezsdl_getutime64() - tm)/1000;
 	}
 }
