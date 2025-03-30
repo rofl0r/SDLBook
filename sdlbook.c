@@ -9,7 +9,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <assert.h>
 #include <sys/time.h>
 #include <libdjvu/ddjvuapi.h>
@@ -166,6 +165,8 @@ static void draw_font(const char* text, struct spritesheet *font, unsigned x, un
 #ifndef MAX
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
+
+#define ISDIGIT(c) ((c) >= '0' && (c) <= '9')
 
 static inline unsigned get_image_pixel(int x, int y) {
 	return image_data[y * page_dims.w + x];
@@ -615,7 +616,7 @@ static void input_loop(const char* title, char *result, enum input_flags flags)
 			default:
 				if(flags == INPUT_LOOP_RET)
 					goto out;
-				else if(flags == INPUT_LOOP_NUMERIC && isdigit(event.which) && (p - result < 20)) {
+				else if(flags == INPUT_LOOP_NUMERIC && ISDIGIT(event.which) && (p - result < 20)) {
 					*(p++) = event.which;
 					*p = 0;
 				}
