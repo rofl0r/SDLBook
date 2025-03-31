@@ -235,6 +235,11 @@ static inline void display_init(display *d, unsigned width, unsigned height, uns
 		d->win = SDL_CreateWindow("ezsdl", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, sw, sh, SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
 		SDL_DisplayMode dm = {.format = EZSDL_PIXEL_FMT, .w = sw, .h = sh };
 		SDL_SetWindowDisplayMode(d->win, &dm);
+		/* SDL2 defaults to inhibit the screensaver, which makes sense
+		   for an action game using a joystick, but we use it
+		   for an ebook reader that's often minimized or backgrounded
+		   and disabling the screensaver for that is confusing at best. */
+		SDL_EnableScreenSaver();
 	}
 	if(d->tex)
 		SDL_DestroyTexture(d->tex);
